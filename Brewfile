@@ -49,7 +49,8 @@ brew "awscli"
 brew "bitwarden-cli"
 
 # ============================================================
-# macOS-only GUI apps and fonts (casks)
+# macOS-only casks
+# (GUI apps you’re already using on macOS)
 # ============================================================
 on_macos do
   cask "ghostty"
@@ -63,10 +64,16 @@ on_macos do
 end
 
 # ============================================================
-# Linux-only extras (optional)
+# Linux (Lima) casks
+# (same GUI stack you already have under Linuxbrew)
 # ============================================================
 on_linux do
-  # For now nothing special; shared brew() entries above already apply.
-  # Add Linux-only stuff here later if you need it.
+  cask "ghostty"
+  cask "claude-code"
+  cask "font-meslo-for-powerlevel10k"
+  cask "microsoft-edge"
+  cask "mongodb-compass"
+  cask "nosql-workbench"
+  cask "rectangle"
+  cask "vscodium"
 end
-
