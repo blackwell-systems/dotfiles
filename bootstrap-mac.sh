@@ -1,28 +1,22 @@
 #!/usr/bin/env bash
+# ============================================================
+# FILE: bootstrap-mac.sh
+# ============================================================
 set -euo pipefail
 
-# Resolve dotfiles repo dir based on this script's location
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BREWFILE_PATH="$DOTFILES_DIR/Brewfile"
 
 echo "=== macOS bootstrap starting ==="
-echo "Dotfiles directory: $DOTFILES_DIR"
 
-# ------------------------------------------------------------
-# 1. Xcode Command Line Tools
-# ------------------------------------------------------------
+# 1. Xcode CLI tools ----------------------------------------------------
 if ! xcode-select -p >/dev/null 2>&1; then
   echo "Installing Xcode Command Line Tools..."
   xcode-select --install || true
-  echo
-  echo "Xcode Command Line Tools installation started."
-  echo "Please rerun this script after the installation finishes."
+  echo "Please rerun this script after Xcode tools finish installing."
   exit 0
 fi
 
-# ------------------------------------------------------------
-# 2. Homebrew
-# ------------------------------------------------------------
+# 2. Homebrew -----------------------------------------------------------
 if ! command -v brew >/dev/null 2>&1; then
   echo "Installing Homebrew..."
   /bin/bash -c \
@@ -37,42 +31,57 @@ else
   echo "Homebrew already installed."
 fi
 
-# Make sure brew is on PATH for current shell
+# Make sure brew is on PATH
 if command -v brew >/dev/null 2>&1; then
   eval "$(brew shellenv)"
 fi
 
-# ------------------------------------------------------------
-# 3. Brew Bundle (uses shared mac+Lima Brewfile)
-# ------------------------------------------------------------
-if [ -f "$BREWFILE_PATH" ]; then
-  echo "Running brew bundle with $BREWFILE_PATH ..."
-  brew bundle --file="$BREWFILE_PATH"
+# 3. Brew Bundle --------------------------------------------------------
+if [ -f "$DOTFILES_DIR/Brewfile" ]; then
+  echo "Running brew bundle..."
+  brew bundle --file="$DOTFILES_DIR/Brewfile"
 else
-  echo "No Brewfile found at $BREWFILE_PATH, skipping brew bundle."
+  echo "No Brewfile found at $DOTFILES_DIR/Brewfile, skipping brew bundle."
 fi
 
-# ------------------------------------------------------------
-# 4. Workspace layout (shared mount for macOS + Lima)
-# ------------------------------------------------------------
+# 4. Workspace layout ---------------------------------------------------
 echo "Ensuring ~/workspace layout..."
+mkdir -p "$HOME/workspace"
 mkdir -p "$HOME/workspace/code"
-mkdir -p "$HOME/workspace/whitepapers"
-mkdir -p "$HOME/workspace/patent-pool"
+# NOTE:
+#   whitepapers/ and patent-pool/ are repos now, so we do NOT pre-create
+#   ~/workspace/whitepapers or ~/workspace/patent-pool to avoid nesting.
 
-# ------------------------------------------------------------
-# 5. Dotfiles symlinks
-# ------------------------------------------------------------
-if [ -x "$DOTFILES_DIR/bootstrap-dotfiles.sh" ]; then
-  echo "Linking dotfiles via bootstrap-dotfiles.sh..."
-  "$DOTFILES_DIR/bootstrap-dotfiles.sh"
+# 5. Dotfiles symlinks --------------------------------------------------
+echo "Linking dotfiles..."
+"$DOTFILES_DIR/bootstrap-dotfiles.sh"
+
+# 6. Shared Claude data symlink ----------------------------------------
+# Goal: make ~/.claude point at the shared ~/workspace/.claude so both
+# macOS and Lima use the same history / state.
+CLAUDE_SHARED="$HOME/workspace/.claude"
+
+if [ -e "$CLAUDE_SHARED" ]; then
+  echo "Found shared Claude directory at $CLAUDE_SHARED"
+
+  # If a real ~/.claude exists and is NOT a symlink, back it up once
+  if [ -e "$HOME/.claude" ] && [ ! -L "$HOME/.claude" ]; then
+    BACKUP="$HOME/.claude.bak-$(date +%Y%m%d%H%M%S)"
+    echo "Backing up existing ~/.claude to $BACKUP"
+    mv "$HOME/.claude" "$BACKUP"
+  fi
+
+  ln -sfn "$CLAUDE_SHARED" "$HOME/.claude"
+  echo "Linked ~/.claude -> $CLAUDE_SHARED"
 else
-  echo "WARNING: $DOTFILES_DIR/bootstrap-dotfiles.sh not found or not executable; skipping dotfile symlinks."
+  echo "Note: $CLAUDE_SHARED does not exist yet; skipping Claude symlink."
+  echo "      After you untar/restore your Claude data into $CLAUDE_SHARED,"
+  echo "      rerun this script or create the symlink manually:"
+  echo "        ln -sfn \$HOME/workspace/.claude \$HOME/.claude"
 fi
 
 echo "=== macOS bootstrap complete ==="
 echo "Next:"
-echo "  - Open Ghostty, confirm Meslo Nerd Font is selected."
-echo "  - Create/start your Lima dev-ubuntu VM using the lima/dev-ubuntu.yaml template."
-echo "  - Inside Lima, run:  ~/workspace/dotfiles/bootstrap-lima.sh"
-
+echo "  - Open Ghostty and confirm Meslo Nerd Font is selected."
+echo "  - Clone your repos into ~/workspace (whitepapers, patent-pool, etc.)."
+echo "  - Claude CLI/Code will now use shared history via ~/workspace/.claude."

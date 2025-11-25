@@ -1,99 +1,77 @@
 #!/usr/bin/env bash
+# ============================================================
+# FILE: bootstrap-lima.sh
+# ============================================================
 set -euo pipefail
 
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=== Lima (dev-ubuntu) bootstrap starting ==="
 
-# ------------------------------------------------------------
-# 0. Basic OS packages (build tools, curl, git, zsh, etc.)
-# ------------------------------------------------------------
-echo "[Lima] Installing base apt packages..."
+# 1. Basic apt packages -----------------------------------------------
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-  build-essential \
-  curl \
-  file \
-  git \
-  zsh
+  build-essential curl file git zsh
 
-# ------------------------------------------------------------
-# 1. Linuxbrew (Homebrew for Linux)
-# ------------------------------------------------------------
+# 2. Linuxbrew install (if not present) -------------------------------
 if ! command -v brew >/dev/null 2>&1; then
-  echo "[Lima] Installing Linuxbrew..."
+  echo "Installing Linuxbrew..."
   /bin/bash -c \
     "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-  # Standard Linuxbrew shellenv
-  if [ -d /home/linuxbrew/.linuxbrew/bin ]; then
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
-    echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.profile"
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-  fi
+  echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 else
-  echo "[Lima] Linuxbrew already installed."
-  # Make sure shellenv is loaded for this run
-  if command -v brew >/dev/null 2>&1; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" || true
-  fi
+  echo "Linuxbrew already installed."
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" || true
 fi
 
-# ------------------------------------------------------------
-# 2. Brew Bundle (shared Brewfile)
-# ------------------------------------------------------------
-if command -v brew >/dev/null 2>&1; then
-  if [ -f "$DOTFILES_DIR/Brewfile" ]; then
-    echo "[Lima] Running brew bundle with $DOTFILES_DIR/Brewfile..."
-    brew bundle --file="$DOTFILES_DIR/Brewfile"
-  else
-    echo "[Lima] No Brewfile found at $DOTFILES_DIR/Brewfile; skipping brew bundle."
-  fi
+# 3. Brew Bundle (shared Brewfile with macOS) -------------------------
+if [ -f "$DOTFILES_DIR/Brewfile" ]; then
+  echo "Running brew bundle (Lima)..."
+  brew bundle --file="$DOTFILES_DIR/Brewfile"
 else
-  echo "[Lima] brew is not available; skipping Brewfile installation."
+  echo "No Brewfile found at $DOTFILES_DIR/Brewfile, skipping brew bundle."
 fi
 
-# ------------------------------------------------------------
-# 3. Sanity check: ~/workspace should be mounted from macOS
-# ------------------------------------------------------------
-if [ ! -d "$HOME/workspace" ]; then
-  echo "ERROR: ~/workspace does not exist inside Lima."
-  echo "This script assumes your macOS host is sharing ~/workspace into the VM"
-  echo "via lima.yaml, e.g.:"
-  echo "  mounts:"
-  echo "    - location: ~/workspace"
-  echo "      path: /home/ubuntu/workspace"
-  echo
-  echo "Fix the Lima mount, then rerun this script."
-  exit 1
-fi
-
-# NOTE: We do *not* create ~/workspace or any subdirectories here.
-# macOS is the source of truth for:
-#   ~/workspace
-#   ~/workspace/code
-#   ~/workspace/whitepapers
-#   ~/workspace/patent-pool
-#   ~/workspace/dotfiles
-# Lima just consumes that structure.
-
-# ------------------------------------------------------------
-# 4. Dotfiles symlinks (shared with macOS)
-# ------------------------------------------------------------
-echo "[Lima] Linking dotfiles via bootstrap-dotfiles.sh..."
+# 4. Dotfiles symlinks (shared with macOS) ----------------------------
+echo "Linking dotfiles..."
 "$DOTFILES_DIR/bootstrap-dotfiles.sh"
 
-# ------------------------------------------------------------
-# 5. Set default shell to zsh (if not already)
-# ------------------------------------------------------------
-if [ "$SHELL" != "$(command -v zsh)" ]; then
-  echo "[Lima] Changing default shell to zsh..."
-  chsh -s "$(command -v zsh)" || echo "WARNING: chsh failed; you may need to run it manually."
+# 5. Shared Claude data symlink ---------------------------------------
+# Lima sees ~/workspace via the host mount. We want ~/.claude inside
+# Lima to also point at the same ~/workspace/.claude.
+CLAUDE_SHARED="$HOME/workspace/.claude"
+
+if [ -e "$CLAUDE_SHARED" ]; then
+  echo "Found shared Claude directory at $CLAUDE_SHARED"
+
+  # If a real ~/.claude exists and is NOT a symlink, back it up once
+  if [ -e "$HOME/.claude" ] && [ ! -L "$HOME/.claude" ]; then
+    BACKUP="$HOME/.claude.bak-$(date +%Y%m%d%H%M%S)"
+    echo "Backing up existing ~/.claude to $BACKUP"
+    mv "$HOME/.claude" "$BACKUP"
+  fi
+
+  ln -sfn "$CLAUDE_SHARED" "$HOME/.claude"
+  echo "Linked ~/.claude -> $CLAUDE_SHARED"
 else
-  echo "[Lima] Default shell already zsh."
+  echo "Note: $CLAUDE_SHARED does not exist yet; skipping Claude symlink."
+  echo "      Make sure the host has ~/workspace/.claude (your tar restore),"
+  echo "      then rerun this script or run:"
+  echo "        ln -sfn \$HOME/workspace/.claude \$HOME/.claude"
+fi
+
+# 6. Set default shell to zsh -----------------------------------------
+if [ "$SHELL" != "$(command -v zsh)" ]; then
+  echo "Setting default shell to zsh..."
+  if chsh -s "$(command -v zsh)"; then
+    echo "Default shell changed to zsh."
+  else
+    echo "Could not change shell automatically; run this manually:"
+    echo "  chsh -s \$(command -v zsh)"
+  fi
 fi
 
 echo "=== Lima bootstrap complete ==="
-echo "Next steps:"
-echo "  - Open a new Lima shell so zsh + Powerlevel10k + plugins are active."
-echo "  - Use aliases like: cws / ccode / cwhite / cpat once repos are cloned on macOS."
+echo "Open a new Lima shell to use zsh + Powerlevel10k and shared Claude history."
