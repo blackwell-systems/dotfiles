@@ -1,0 +1,27 @@
+[profile dev-profile]
+sso_session = dev-sso
+sso_account_id = 456776821050
+sso_role_name = AccountAdmin
+region = us-west-2
+
+[sso-session dev-sso]
+sso_start_url = {{SSO_DEV_START_URL}}
+sso_region = {{SSO_DEV_REGION}}
+sso_registration_scopes = sso:account:access
+
+[profile prod-profile]
+sso_session = prod-sso
+sso_account_id = 683744380337
+sso_role_name = AccountAdmin
+region = us-west-2
+
+[sso-session prod-sso]
+sso_start_url = {{SSO_PROD_START_URL}}
+sso_region = {{SSO_PROD_REGION}}
+sso_registration_scopes = sso:account:access
+
+[profile personal]
+region = us-west-2
+
+[profile blackwellsystems]
+region = us-west-2
