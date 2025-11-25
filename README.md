@@ -1,505 +1,167 @@
-# Dotfiles & Vault Setup
+# Dotfiles Setup
 
-This repository contains my personal dotfiles for **macOS** and **Lima** (Linux), used to configure my development environment consistently across both platforms. The dotfiles include configurations for **Zsh**, **Powerlevel10k**, **Homebrew**, **Claude helpers**, and a **Bitwarden-based vault bootstrap** for SSH keys, AWS config/credentials, and environment secrets.
-
----
+This repository contains my personal dotfiles for **macOS** and **Lima** (Linux), used to configure my development environment consistently across both platforms. The dotfiles include configurations for **Zsh**, **Powerlevel10k**, **Homebrew**, **Claude helpers**, and more.
 
 ## Directory Structure
 
 The dotfiles are organized as follows:
 
-```text
-~/workspace/dotfiles
-├── bootstrap-dotfiles.sh     # Shared symlink bootstrap (zshrc, p10k, Ghostty)
-├── bootstrap-lima.sh         # Lima / Linux-specific bootstrap wrapper
-├── bootstrap-mac.sh          # macOS-specific bootstrap wrapper
-├── Brewfile                  # Homebrew bundle for core tools
-├── ghostty
-│   └── config                # Ghostty terminal config
-├── lima
-│   └── lima.yaml             # Lima VM config (host-side)
-├── vault
-│   ├── bootstrap-vault.sh    # Orchestrates all Bitwarden restores
-│   ├── restore-ssh.sh        # Restores SSH keys from Bitwarden
-│   ├── restore-aws.sh        # Restores ~/.aws/config & ~/.aws/credentials
-│   └── restore-env.sh        # Restores environment secrets to ~/.local
-└── zsh
-    ├── p10k.zsh              # Powerlevel10k theme config
-    └── zshrc                 # Main Zsh configuration
-```
+~/workspace/dotfiles/
+├── zsh/
+│   ├── zshrc
+│   └── p10k.zsh
+└── ghostty/
+    └── config
 
-Key pieces:
-
-- **zsh/zshrc**: Main Zsh configuration file  
-- **zsh/p10k.zsh**: Powerlevel10k theme configuration  
+- **zshrc**: Main Zsh configuration file  
+- **p10k.zsh**: Powerlevel10k theme configuration  
 - **ghostty/config**: Ghostty terminal configuration  
-- **vault/**: Bitwarden-based secure bootstrap for SSH, AWS, and environment secrets  
 
-Symlinks in your home directory (`~/.zshrc`, `~/.p10k.zsh`, etc.) point to these files.
+Symlinks in your home directory (`~/.zshrc`, `~/.p10k.zsh`, etc.) will point to these files.
 
----
+## Prerequisites
 
-## Global Prerequisites
+1. macOS or Linux (Lima)
+2. Homebrew (Linuxbrew on Lima)
+3. Zsh set as the default shell
 
-On **both macOS and Lima/Linux**, you’ll eventually want:
+## Setup Instructions
 
-- **Zsh** as your login shell
-- **Homebrew** (macOS or Linuxbrew)
-- **Git**
-- **Bitwarden CLI** (`bw`)
-- **jq** (for JSON manipulation)
-- **AWS CLI v2** (for AWS workflows)
+### 1. Clone the Repository
 
-You can install most of these via Homebrew (after the basic bootstrap is done).
+Clone into `~/workspace/dotfiles`:
 
----
-
-## Bootstrap Overview
-
-There are two big pillars:
-
-1. **Dotfiles / Shell bootstrap**  
-   - Handled by:  
-     - `bootstrap-dotfiles.sh`  
-     - `bootstrap-mac.sh`  
-     - `bootstrap-lima.sh`
-   - Goal: consistent Zsh + p10k + plugins + Ghostty config across host and Lima.
-
-2. **Vault / Secure secrets bootstrap (Bitwarden)**  
-   - Handled by:  
-     - `vault/bootstrap-vault.sh`  
-     - `vault/restore-ssh.sh`  
-     - `vault/restore-aws.sh`  
-     - `vault/restore-env.sh`
-   - Goal: restore **SSH keys**, **AWS config/credentials**, and **env secrets** from Bitwarden.
-
----
-
-## Bootstrapping macOS from Scratch
-
-1. **Create workspace directory**
-
-```bash
-mkdir -p ~/workspace
 cd ~/workspace
-```
+git clone https://github.com/your-username/dotfiles.git
 
-2. **Clone dotfiles repo**
+### 2. Create Symlinks
 
-```bash
-git clone git@github.com:your-username/dotfiles.git
+All dotfiles exist in their non-dot form inside the repo (e.g., `zshrc` instead of `.zshrc`).  
+The bootstrap script creates the expected home-directory dotfiles.
+
+Run:
+
 cd ~/workspace/dotfiles
-```
+./bootstrap-dotfiles.sh
 
-3. **Run macOS bootstrap**
+The script will:
 
-```bash
-./bootstrap-mac.sh
-```
+- Create symlinks in your home directory:
+  - `~/.zshrc` → `~/workspace/dotfiles/zsh/zshrc`
+  - `~/.p10k.zsh` → `~/workspace/dotfiles/zsh/p10k.zsh`
+- Ensure Claude helpers and Zsh plugins are wired in
 
-Typical responsibilities of `bootstrap-mac.sh`:
+### 3. Verify Symlinks
 
-- Install Homebrew (if missing).  
-- Run `bootstrap-dotfiles.sh` to create symlinks:
+ls -lash ~/.zshrc
+ls -lash ~/.p10k.zsh
 
-  - `~/.zshrc    → ~/workspace/dotfiles/zsh/zshrc`  
-  - `~/.p10k.zsh → ~/workspace/dotfiles/zsh/p10k.zsh`  
-  - Ghostty config symlink into `~/Library/Application Support/com.mitchellh.ghostty/config`
+You should see symlinks pointing to the files inside the dotfiles repository.
 
-- Optionally run `brew bundle --file=./Brewfile` to install core tools.
+Reload Zsh:
 
-4. **Open a new terminal**
+source ~/.zshrc
 
-This ensures the new `~/.zshrc` and Powerlevel10k config are picked up.
+### 4. Install Dependencies (Optional)
 
----
+#### macOS
 
-## Bootstrapping Lima / Linux Guest
+brew install powerlevel10k
+brew install zsh-autosuggestions
+brew install zsh-syntax-highlighting
 
-Assuming your Lima VM shares `~/workspace` from macOS:
+#### Lima (Linux)
 
-1. **Start Lima with your config**
+if ! command -v brew >/dev/null 2>&1; then
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
 
-On macOS, from your dotfiles repo:
+brew install powerlevel10k zsh-autosuggestions zsh-syntax-highlighting
 
-```bash
-limactl start ~/workspace/dotfiles/lima/lima.yaml
-limactl shell lima-dev-ubuntu
-```
+### 5. Confirm Appearance
 
-2. **Inside Lima, run the Lima bootstrap**
+You should now have:
 
-```bash
-cd ~/workspace/dotfiles
-./bootstrap-lima.sh
-```
-
-Typical responsibilities of `bootstrap-lima.sh`:
-
-- Ensure `brew` (Linuxbrew) is installed.  
-- Call `bootstrap-dotfiles.sh` to wire up `.zshrc`, `.p10k.zsh`, and (optionally) any Linux-specific pieces.  
-- Optionally run `brew bundle --file=./Brewfile` for core tools.
-
-3. **Restart the shell**
-
-Open a new shell in Lima so Zsh + Powerlevel10k + plugins are active.
+- Syntax highlighting
+- Autosuggestions
+- Powerlevel10k prompt
 
 ---
 
-## Dotfiles Bootstrap Details
+## Key Configuration Files
 
-### `bootstrap-dotfiles.sh`
-
-This is the **central symlink script**. It:
-
-- Detects `DOTFILES_DIR` (usually `~/workspace/dotfiles`)
-- Creates or force-updates symlinks:
-
-  - `~/.zshrc    -> $DOTFILES_DIR/zsh/zshrc`  
-  - `~/.p10k.zsh -> $DOTFILES_DIR/zsh/p10k.zsh`  
-  - Ghostty config symlink on macOS
-
-This script is shared between macOS and Lima/Linux; OS-specific scripts call it.
+- **~/.zshrc** — Main Zsh config  
+- **~/.p10k.zsh** — Powerlevel10k config  
+- **Claude helpers** — Functions for controlling which Claude mode runs
 
 ---
 
-## Vault / Bitwarden Bootstrap
+## Using the Dotfiles
 
-The **vault system** lives entirely under:
+### Switching Claude Modes
 
-```text
-~/workspace/dotfiles/vault
-    ├── bootstrap-vault.sh
-    ├── restore-ssh.sh
-    ├── restore-aws.sh
-    └── restore-env.sh
-```
+Available functions:
 
-### What it does
+- `claude-bedrock` — Uses AWS Bedrock  
+- `claude-max` — Uses Anthropic Max  
+- `claude-run MODE "prompt"` — Flexible entrypoint
 
-- Uses **Bitwarden CLI** to unlock your vault and cache a session.
-- Restores:
-  - `~/.ssh/…` keys used for GitHub and other services.
-  - `~/.aws/config` and `~/.aws/credentials`.
-  - Environment secrets into `~/.local/env.secrets` + a helper `load-env.sh`.
+Examples:
 
-### Bitwarden basics for this setup
+claude-run bedrock "explain this code"
+claude-run max "optimize this function"
 
-1. **Login (once per machine)**
-   
-```bash
-bw login
-# follow prompts for email + master password
-```
+### Navigation Aliases
 
-2. **Unlock to get a session**
+Included in `.zshrc`:
 
-You can either:
+- `cws` → `~/workspace`
+- `ccode` → `~/workspace/code`
+- `cwhite` → `~/workspace/whitepapers`
+- `cpat` → `~/workspace/patent-pool`
 
-- Use environment variable:
-
-  ```bash
-  export BW_SESSION="$(bw unlock --raw)"
-  ```
-
-- Or let `vault/bootstrap-vault.sh` manage its own session cache file.
+Modify in `zshrc` as needed.
 
 ---
 
-## Restoring from Bitwarden on Any Machine
+## File Synchronization Notes
 
-Once the dotfiles are in place and `bw` is installed:
+Because `~/workspace` is the shared mount between **macOS** and **Lima**, the dotfiles repo automatically stays synced:
 
-1. **Ensure you are logged into Bitwarden CLI**
+- macOS writes to `~/workspace/dotfiles`
+- Lima sees those same files immediately
 
-```bash
-bw login           # if not already logged in
-export BW_SESSION="$(bw unlock --raw)"
-```
-
-2. **Run the vault bootstrap**
-
-```bash
-cd ~/workspace/dotfiles/vault
-./bootstrap-vault.sh
-```
-
-`bootstrap-vault.sh` will:
-
-- Reuse `vault/.bw-session` if valid; otherwise call `bw unlock --raw` and store the session.  
-- Call:
-
-  - `restore-ssh.sh "$SESSION"`  
-  - `restore-aws.sh "$SESSION"`  
-  - `restore-env.sh "$SESSION"`
-
-After this finishes:
-
-- Your **SSH keys** are back under `~/.ssh`.  
-- Your **AWS config/credentials** are restored.  
-- Your **env secrets** file and loader script are in `~/.local`.
-
----
-
-## Scripts: What Each Restore Script Expects
-
-### `restore-ssh.sh`
-
-- Reads Bitwarden **Secure Note** items:
-
-  - `"SSH-GitHub-Enterprise"`
-  - `"SSH-GitHub-Blackwell"`
-
-- Each item’s **notes** field should contain:
-
-  - The full **OpenSSH private key** block.  
-  - Optionally the corresponding `ssh-ed25519 ...` public key line.
-
-The script:
-
-- Reconstructs these files:
-
-  - `~/.ssh/id_ed25519_enterprise_ghub`
-  - `~/.ssh/id_ed25519_enterprise_ghub.pub`
-  - `~/.ssh/id_ed25519_blackwell`
-  - `~/.ssh/id_ed25519_blackwell.pub`
-
-- Sets appropriate permissions (`600` for private, `644` for public).
-
-> **Important:** The exact item names (`SSH-GitHub-Enterprise`, `SSH-GitHub-Blackwell`) need to match.
-
----
-
-### `restore-aws.sh`
-
-- Expects two **Secure Note** items in Bitwarden:
-
-  - `"AWS-Config"`       → contains your full `~/.aws/config`
-  - `"AWS-Credentials"`  → contains your full `~/.aws/credentials`
-
-- The **notes** field of each item is the raw file content.
-
-The script:
-
-- Writes `~/.aws/config` and `~/.aws/credentials` directly from these notes.
-- Sets safe permissions (`600` where appropriate).
-
----
-
-### `restore-env.sh`
-
-- Expects a **Secure Note** item named `"Environment-Secrets"`.
-
-- The **notes** field should contain lines like:
-
-  ```text
-  SOME_API_KEY=...
-  ANOTHER_SECRET=...
-  ```
-
-The script:
-
-- Writes this into `~/.local/env.secrets`.
-- Creates `~/.local/load-env.sh` which exports everything when sourced:
-
-  ```bash
-  # Example usage in your shell:
-  source ~/.local/load-env.sh
-  ```
-
----
-
-## One-Time: Push Current Files into Bitwarden (for Future-You)
-
-The idea: run these **once** on a “known-good” machine (your macOS host), so future machines can restore from Bitwarden with `bootstrap-vault.sh`.
-
-You can also do all of this manually in the Bitwarden GUI, but here’s the CLI version for reproducibility.
-
-### 1. Ensure `BW_SESSION` is set
-
-```bash
-export BW_SESSION="$(bw unlock --raw)"
-bw sync --session "$BW_SESSION"
-```
-
----
-
-### 2. Push `~/.aws/config` into `AWS-Config`
-
-```bash
-cd ~/workspace/dotfiles/vault
-
-CONFIG_JSON=$(jq -Rs --arg name "AWS-Config" \
-  '{ type: 2, name: $name, secureNote: { type: 0 }, notes: . }' \
-  < ~/.aws/config)
-
-CONFIG_ENC=$(printf '%s' "$CONFIG_JSON" | bw encode)
-
-bw create item "$CONFIG_ENC" --session "$BW_SESSION"
-```
-
-- This creates a **Secure Note** called `AWS-Config`.
-- `notes` contains your entire `~/.aws/config`.
-
-If you want to **update** it later instead of creating duplicates, you can grab its ID and run `bw edit item`:
-
-```bash
-AWS_CONFIG_ID=$(bw list items --search "AWS-Config" --session "$BW_SESSION" | jq -r '.[0].id')
-printf '%s' "$CONFIG_JSON" | bw encode | bw edit item "$AWS_CONFIG_ID" --session "$BW_SESSION"
-```
-
----
-
-### 3. Push `~/.aws/credentials` into `AWS-Credentials`
-
-```bash
-CREDS_JSON=$(jq -Rs --arg name "AWS-Credentials" \
-  '{ type: 2, name: $name, secureNote: { type: 0 }, notes: . }' \
-  < ~/.aws/credentials)
-
-CREDS_ENC=$(printf '%s' "$CREDS_JSON" | bw encode)
-
-bw create item "$CREDS_ENC" --session "$BW_SESSION"
-```
-
-Again, to **update** later:
-
-```bash
-AWS_CREDS_ID=$(bw list items --search "AWS-Credentials" --session "$BW_SESSION" | jq -r '.[0].id')
-printf '%s' "$CREDS_JSON" | bw encode | bw edit item "$AWS_CREDS_ID" --session "$BW_SESSION"
-```
-
----
-
-### 4. Push SSH keys into Secure Notes
-
-You’ll create one note per SSH identity:
-
-- `SSH-GitHub-Enterprise`    → `id_ed25519_enterprise_ghub`
-- `SSH-GitHub-Blackwell`     → `id_ed25519_blackwell`
-
-Each note will contain the **private key** (which is already passphrase-protected by OpenSSH) and optionally the **public key**.
-
-#### Enterprise key
-
-```bash
-(
-  cat ~/.ssh/id_ed25519_enterprise_ghub
-  echo
-  cat ~/.ssh/id_ed25519_enterprise_ghub.pub
-) | jq -Rs '{
-  type: 2,
-  name: "SSH-GitHub-Enterprise",
-  secureNote: { type: 0 },
-  notes: .
-}' | bw encode | bw create item --session "$BW_SESSION"
-```
-
-#### Blackwell key
-
-```bash
-(
-  cat ~/.ssh/id_ed25519_blackwell
-  echo
-  cat ~/.ssh/id_ed25519_blackwell.pub
-) | jq -Rs '{
-  type: 2,
-  name: "SSH-GitHub-Blackwell",
-  secureNote: { type: 0 },
-  notes: .
-}' | bw encode | bw create item --session "$BW_SESSION"
-```
-
-> If you prefer, you can also create these as **Secure Notes** in the Bitwarden GUI and paste the contents of the private + public key directly into the Notes field. The restore script just looks at `notes`.
-
----
-
-### 5. Push environment secrets into `Environment-Secrets` (optional)
-
-1. First, create a local file with the secrets you want portable:
-
-```bash
-mkdir -p ~/.local
-cat > ~/.local/env.secrets <<'EOF'
-# Example
-OPENAI_API_KEY=...
-GITHUB_TOKEN=...
-EOF
-chmod 600 ~/.local/env.secrets
-```
-
-2. Then push it into Bitwarden:
-
-```bash
-ENV_JSON=$(jq -Rs --arg name "Environment-Secrets" \
-  '{ type: 2, name: $name, secureNote: { type: 0 }, notes: . }' \
-  < ~/.local/env.secrets)
-
-ENV_ENC=$(printf '%s' "$ENV_JSON" | bw encode)
-
-bw create item "$ENV_ENC" --session "$BW_SESSION"
-```
-
-Now `restore-env.sh` will bring this back on any new machine and create `~/.local/load-env.sh` to load it.
-
----
-
-## Using the Dotfiles Day-to-Day
-
-### Claude helpers
-
-From your shell, you have helpers like:
-
-- `claude-bedrock "prompt..."`  
-- `claude-max "prompt..."`  
-- `claude-run bedrock "prompt..."`  
-- `claude-run max "prompt..."`
-
-These functions set the correct environment variables so you can cleanly switch between AWS Bedrock and Claude Max.
-
-### Navigation aliases
-
-Defined in `zsh/zshrc`:
-
-- `cws`     → `cd ~/workspace`  
-- `ccode`   → `cd ~/workspace/code`  
-- `cwhite`  → `cd ~/workspace/whitepapers`  
-- `cpat`    → `cd ~/workspace/patent-pool`  
-
-You can tweak these in `zsh/zshrc` as your workspace grows.
+This creates a unified environment across machines.
 
 ---
 
 ## Troubleshooting
 
-### Powerlevel10k / icons missing
+### 1. Broken Symlinks
 
-- Ensure Powerlevel10k is installed via Homebrew:
-  ```bash
-  brew install powerlevel10k
-  ```
-- Make sure your terminal uses a Nerd Font (configured in Ghostty / terminal preferences).
-- Verify `~/.p10k.zsh` exists and is symlinked correctly.
+Recreate manually:
 
-### Bitwarden CLI weirdness
+ln -sf ~/workspace/dotfiles/zsh/zshrc ~/.zshrc
+ln -sf ~/workspace/dotfiles/zsh/p10k.zsh ~/.p10k.zsh
 
-- Ensure you’re running the **official Bitwarden CLI** (not an old brew version that’s half-broken).
-- Confirm:
+### 2. Missing Tools
 
-  ```bash
-  bw --version
-  bw login
-  bw unlock --raw
-  bw list items --session "$BW_SESSION"
-  ```
+Ensure you installed:
 
-- If something gets wedged, you can log out and log in again:
+- brew  
+- zsh  
+- powerlevel10k  
+- zsh-autosuggestions  
+- zsh-syntax-highlighting  
 
-  ```bash
-  bw logout
-  bw login
-  export BW_SESSION="$(bw unlock --raw)"
-  ```
+### 3. Conflicts With Existing Config
+
+If an old `.zshrc` or `.p10k.zsh` exists, back it up:
+
+mv ~/.zshrc ~/.zshrc.backup
+mv ~/.p10k.zsh ~/.p10k.zsh.backup
+
+Then re-run the bootstrap script.
 
 ---
 
@@ -507,5 +169,7 @@ You can tweak these in `zsh/zshrc` as your workspace grows.
 
 This repository is licensed under the **MIT License**.
 
-By following this guide, you can fully restore your **dotfiles**, **SSH keys**, **AWS configuration**, and **environment secrets** across macOS and Lima/Linux in a reproducible, vault-backed way.
+---
+
+By following this guide, you'll have a **consistent, portable, and fully automated environment** across macOS and Lima.
 
