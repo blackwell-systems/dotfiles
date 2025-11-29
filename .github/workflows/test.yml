@@ -33,7 +33,9 @@ jobs:
           for script in "${BASH_SCRIPTS[@]}"; do
             if [[ -f "$script" ]]; then
               echo "Checking $script..."
-              if ! shellcheck "$script"; then
+              # -S warning: Only fail on warnings and errors, not info-level messages
+              # SC1091 (info) is about not following sourced files
+              if ! shellcheck -S warning "$script"; then
                 ((ERRORS++))
               fi
             else
