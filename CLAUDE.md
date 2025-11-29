@@ -329,5 +329,5 @@ Before completing work, verify:
 
 ---
 
-**Last Updated:** 2025-11-28
-**Version:** 1.0.0
+**Last Updated:** 2025-11-29
+**Version:** 1.6.0

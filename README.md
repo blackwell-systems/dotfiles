@@ -12,7 +12,9 @@
 
 > Enterprise-grade, vault-backed dotfiles for multi-machine development. Bitwarden provides the source of truth for secrets, a canonical `/workspace` path keeps Claude Code sessions portable across macOS, Linux, Windows, and WSL2, and health checks guard against drift, broken symlinks, and missing vault state.
 
-**Version:** 1.0.0 | [Changelog](CHANGELOG.md) | [Full Documentation](docs/README-FULL.md)
+[![Version](https://img.shields.io/badge/Version-1.6.0-blue)](CHANGELOG.md)
+
+**Version:** 1.6.0 | [Changelog](CHANGELOG.md) | [Full Documentation](docs/README-FULL.md)
 
 ---
 
