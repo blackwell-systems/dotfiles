@@ -5,9 +5,9 @@
 
 > **Enterprise-grade dotfiles system** with Bitwarden vault integration, cross-platform support, portable Claude Code sessions, and automated health checks.
 
-[![Version](https://img.shields.io/badge/Version-1.6.0-blue)](../CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.7.0-blue)](../CHANGELOG.md)
 
-**Version:** 1.6.0 | [Changelog](../CHANGELOG.md) | [Quick Start Guide](../README.md)
+**Version:** 1.7.0 | [Changelog](../CHANGELOG.md) | [Quick Start Guide](../README.md)
 
 This is the comprehensive reference documentation for the dotfiles system. It covers configurations for **Zsh**, **Powerlevel10k**, **Homebrew**, **Claude Code portable sessions**, and a **Bitwarden-based vault bootstrap** for SSH keys, AWS credentials, and environment secrets across **macOS**, **Windows**, **WSL2**, **Lima**, and **Linux**.
 

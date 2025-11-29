@@ -9,7 +9,8 @@
 # ============================================================
 set -euo pipefail
 
-DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# DOTFILES_DIR is parent of bootstrap/
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # ============================================================
 # Detect environment (before sourcing common)

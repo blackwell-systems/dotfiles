@@ -22,11 +22,11 @@ jobs:
           echo "🔍 Validating shell scripts..."
 
           # Note: ShellCheck only supports sh/bash/dash/ksh (not zsh)
-          # All vault/*.sh and dotfiles-*.sh use ZSH, so only validate bash scripts
+          # All vault/*.sh and bin/dotfiles-* use ZSH, so only validate bash scripts
           BASH_SCRIPTS=(
-            bootstrap-dotfiles.sh
-            bootstrap-mac.sh
-            bootstrap-linux.sh
+            bootstrap/bootstrap-dotfiles.sh
+            bootstrap/bootstrap-mac.sh
+            bootstrap/bootstrap-linux.sh
           )
 
           ERRORS=0
@@ -151,7 +151,7 @@ jobs:
       - name: Make scripts executable
         run: |
           chmod +x test/mocks/bw
-          chmod +x *.sh vault/*.sh 2>/dev/null || true
+          chmod +x bootstrap/*.sh vault/*.sh bin/* 2>/dev/null || true
 
       - name: Run integration tests
         run: |
@@ -183,7 +183,7 @@ jobs:
       - name: Make scripts executable
         run: |
           chmod +x test/mocks/bw
-          chmod +x *.sh vault/*.sh 2>/dev/null || true
+          chmod +x bootstrap/*.sh vault/*.sh bin/* 2>/dev/null || true
 
       - name: Run error scenario tests
         run: |
@@ -223,7 +223,7 @@ jobs:
       - name: Make scripts executable
         run: |
           chmod +x test/mocks/bw
-          chmod +x *.sh vault/*.sh 2>/dev/null || true
+          chmod +x bootstrap/*.sh vault/*.sh bin/* 2>/dev/null || true
 
       - name: Run unit tests with coverage
         run: |
@@ -364,8 +364,8 @@ jobs:
           echo "🍎 Testing macOS compatibility..."
 
           # Check if scripts parse correctly
-          zsh -n bootstrap-mac.sh || exit 1
-          zsh -n bootstrap-dotfiles.sh || exit 1
+          zsh -n bootstrap/bootstrap-mac.sh || exit 1
+          zsh -n bootstrap/bootstrap-dotfiles.sh || exit 1
           zsh -n bin/dotfiles-doctor || exit 1
           zsh -n bin/dotfiles-drift || exit 1
           zsh -n bin/dotfiles-backup || exit 1
@@ -405,8 +405,8 @@ jobs:
           echo "🐧 Testing Linux compatibility..."
 
           # Check if scripts parse correctly
-          zsh -n bootstrap-linux.sh || exit 1
-          zsh -n bootstrap-dotfiles.sh || exit 1
+          zsh -n bootstrap/bootstrap-linux.sh || exit 1
+          zsh -n bootstrap/bootstrap-dotfiles.sh || exit 1
           zsh -n bin/dotfiles-doctor || exit 1
           zsh -n bin/dotfiles-drift || exit 1
           zsh -n bin/dotfiles-backup || exit 1
