@@ -13,7 +13,7 @@ set -euo pipefail
 DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Set platform name before sourcing common (used in help text)
-PLATFORM_NAME="macOS"
+export PLATFORM_NAME="macOS"
 
 # Source shared bootstrap functions
 # shellcheck source=bootstrap/_common.sh
