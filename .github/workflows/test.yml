@@ -22,18 +22,20 @@ jobs:
           echo "🔍 Validating shell scripts..."
 
           # Note: ShellCheck only supports sh/bash/dash/ksh (not zsh)
-          # All vault/*.sh and dotfiles-*.sh use ZSH, so only validate bash scripts
+          # All vault/*.sh and bin/dotfiles-* use ZSH, so only validate bash scripts
           BASH_SCRIPTS=(
-            bootstrap-dotfiles.sh
-            bootstrap-mac.sh
-            bootstrap-linux.sh
+            bootstrap/bootstrap-dotfiles.sh
+            bootstrap/bootstrap-mac.sh
+            bootstrap/bootstrap-linux.sh
           )
 
           ERRORS=0
           for script in "${BASH_SCRIPTS[@]}"; do
             if [[ -f "$script" ]]; then
               echo "Checking $script..."
-              if ! shellcheck "$script"; then
+              # -S warning: Only fail on warnings and errors, not info-level messages
+              # SC1091 (info) is about not following sourced files
+              if ! shellcheck -S warning "$script"; then
                 ((ERRORS++))
               fi
             else
@@ -60,9 +62,13 @@ jobs:
           fi
 
           ZSH_SCRIPTS=(
-            dotfiles-doctor.sh
-            dotfiles-drift.sh
-            show-metrics.sh
+            bin/dotfiles-doctor
+            bin/dotfiles-drift
+            bin/dotfiles-backup
+            bin/dotfiles-diff
+            bin/dotfiles-init
+            bin/dotfiles-metrics
+            bin/dotfiles-uninstall
             vault/_common.sh
             vault/bootstrap-vault.sh
             vault/check-vault-items.sh
@@ -114,14 +120,154 @@ jobs:
           echo "📦 Installing zsh..."
           sudo apt-get install -y zsh
 
+      - name: Make mock bw executable
+        run: chmod +x test/mocks/bw
+
       - name: Run unit tests
         run: |
           echo "🧪 Running unit tests..."
-          bats --timing test/*.bats
+          bats --timing test/vault_common.bats test/cli_commands.bats
 
       - name: Test summary
         if: success()
         run: echo "✅ All unit tests passed!"
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install bats-core
+        run: |
+          echo "📦 Installing bats-core..."
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Install zsh
+        run: |
+          echo "📦 Installing zsh..."
+          sudo apt-get install -y zsh
+
+      - name: Make scripts executable
+        run: |
+          chmod +x test/mocks/bw
+          chmod +x bootstrap/*.sh vault/*.sh bin/* 2>/dev/null || true
+
+      - name: Run integration tests
+        run: |
+          echo "🧪 Running integration tests..."
+          bats --timing test/integration.bats
+
+      - name: Test summary
+        if: success()
+        run: echo "✅ All integration tests passed!"
+
+  error-tests:
+    name: Error Scenario Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install bats-core
+        run: |
+          echo "📦 Installing bats-core..."
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Install zsh
+        run: |
+          echo "📦 Installing zsh..."
+          sudo apt-get install -y zsh
+
+      - name: Make scripts executable
+        run: |
+          chmod +x test/mocks/bw
+          chmod +x bootstrap/*.sh vault/*.sh bin/* 2>/dev/null || true
+
+      - name: Run error scenario tests
+        run: |
+          echo "🧪 Running error scenario tests..."
+          bats --timing test/error_scenarios.bats
+
+      - name: Test summary
+        if: success()
+        run: echo "✅ All error scenario tests passed!"
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing dependencies..."
+          sudo apt-get update
+          sudo apt-get install -y bats zsh
+
+      - name: Install kcov
+        run: |
+          echo "📦 Building kcov from source..."
+          sudo apt-get install -y binutils-dev libcurl4-openssl-dev zlib1g-dev libdw-dev libiberty-dev cmake
+          cd /tmp
+          git clone --depth 1 https://github.com/SimonKagstrom/kcov.git
+          cd kcov
+          mkdir build && cd build
+          cmake ..
+          make -j$(nproc)
+          sudo make install
+          kcov --version
+
+      - name: Make scripts executable
+        run: |
+          chmod +x test/mocks/bw
+          chmod +x bootstrap/*.sh vault/*.sh bin/* 2>/dev/null || true
+
+      - name: Run unit tests with coverage
+        run: |
+          echo "🧪 Running unit tests with coverage..."
+          mkdir -p coverage/unit
+          kcov --include-path=./vault,./zsh coverage/unit bats test/vault_common.bats test/cli_commands.bats || true
+
+      - name: Run integration tests with coverage
+        run: |
+          echo "🧪 Running integration tests with coverage..."
+          mkdir -p coverage/integration
+          kcov --include-path=./vault,./ coverage/integration bats test/integration.bats || true
+
+      - name: Run error scenario tests with coverage
+        run: |
+          echo "🧪 Running error scenario tests with coverage..."
+          mkdir -p coverage/error
+          kcov --include-path=./vault,./ coverage/error bats test/error_scenarios.bats || true
+
+      - name: Merge coverage reports
+        run: |
+          echo "📊 Merging coverage reports..."
+          mkdir -p coverage/merged
+          kcov --merge coverage/merged coverage/unit coverage/integration coverage/error || true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage/merged
+          flags: unittests,integrationtests
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          echo "📊 Coverage collection complete"
+          if [ -d "coverage/merged" ]; then
+            echo "Coverage files:"
+            find coverage/merged -name "*.json" -o -name "*.xml" | head -5
+          fi
 
   markdown-lint:
     name: Markdown Validation
@@ -153,11 +299,16 @@ jobs:
             "Brewfile"
             "zsh/zshrc"
             "zsh/p10k.zsh"
+            "zsh/completions/_dotfiles"
             "vault/_common.sh"
             "vault/bootstrap-vault.sh"
             "vault/README.md"
-            "dotfiles-doctor.sh"
-            "dotfiles-drift.sh"
+            "bin/dotfiles-doctor"
+            "bin/dotfiles-drift"
+            "bin/dotfiles-backup"
+            "bin/dotfiles-diff"
+            "bin/dotfiles-init"
+            "bin/dotfiles-uninstall"
             ".gitignore"
           )
 
@@ -215,10 +366,14 @@ jobs:
           echo "🍎 Testing macOS compatibility..."
 
           # Check if scripts parse correctly
-          zsh -n bootstrap-mac.sh || exit 1
-          zsh -n bootstrap-dotfiles.sh || exit 1
-          zsh -n dotfiles-doctor.sh || exit 1
-          zsh -n dotfiles-drift.sh || exit 1
+          zsh -n bootstrap/bootstrap-mac.sh || exit 1
+          zsh -n bootstrap/bootstrap-dotfiles.sh || exit 1
+          zsh -n bin/dotfiles-doctor || exit 1
+          zsh -n bin/dotfiles-drift || exit 1
+          zsh -n bin/dotfiles-backup || exit 1
+          zsh -n bin/dotfiles-diff || exit 1
+          zsh -n bin/dotfiles-init || exit 1
+          zsh -n bin/dotfiles-uninstall || exit 1
 
           echo "✅ All scripts have valid syntax on macOS"
 
@@ -252,10 +407,14 @@ jobs:
           echo "🐧 Testing Linux compatibility..."
 
           # Check if scripts parse correctly
-          zsh -n bootstrap-linux.sh || exit 1
-          zsh -n bootstrap-dotfiles.sh || exit 1
-          zsh -n dotfiles-doctor.sh || exit 1
-          zsh -n dotfiles-drift.sh || exit 1
+          zsh -n bootstrap/bootstrap-linux.sh || exit 1
+          zsh -n bootstrap/bootstrap-dotfiles.sh || exit 1
+          zsh -n bin/dotfiles-doctor || exit 1
+          zsh -n bin/dotfiles-drift || exit 1
+          zsh -n bin/dotfiles-backup || exit 1
+          zsh -n bin/dotfiles-diff || exit 1
+          zsh -n bin/dotfiles-init || exit 1
+          zsh -n bin/dotfiles-uninstall || exit 1
 
           echo "✅ All scripts have valid syntax on Linux"
 
@@ -335,10 +494,10 @@ jobs:
 
             echo "=== Making scripts executable ==="
             cd /dotfiles
-            chmod +x *.sh vault/*.sh 2>/dev/null || true
+            chmod +x bootstrap/*.sh vault/*.sh bin/* 2>/dev/null || true
 
             echo "=== Running bootstrap ==="
-            bash ./bootstrap-linux.sh
+            bash ./bootstrap/bootstrap-linux.sh
 
             echo "=== Verifying installation ==="
             # Check if brew was installed

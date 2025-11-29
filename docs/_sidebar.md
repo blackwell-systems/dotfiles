@@ -21,13 +21,15 @@
   - [Full Documentation](README-FULL.md)
   - [Vault System](vault-README.md)
   - [macOS Settings](macos-settings.md)
+  - [Architecture](architecture.md)
 
 - **Reference**
   - [Platform Support](/#platform-support)
-  - [Troubleshooting](/#troubleshooting)
+  - [Troubleshooting](troubleshooting.md)
   - [Contributing](CONTRIBUTING.md)
   - [Security](SECURITY.md)
   - [Changelog](CHANGELOG.md)
+  - [Roadmap](ROADMAP.md)
 
 - **Links**
   - [![GitHub](https://icongr.am/simple/github.svg?size=16&colored=false) GitHub Repo](https://github.com/blackwell-systems/dotfiles)

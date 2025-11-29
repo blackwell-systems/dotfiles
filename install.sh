@@ -89,11 +89,11 @@ OS="$(uname -s)"
 case "$OS" in
     Darwin)
         PLATFORM="macOS"
-        BOOTSTRAP_SCRIPT="bootstrap-mac.sh"
+        BOOTSTRAP_SCRIPT="bootstrap/bootstrap-mac.sh"
         ;;
     Linux)
         PLATFORM="Linux"
-        BOOTSTRAP_SCRIPT="bootstrap-linux.sh"
+        BOOTSTRAP_SCRIPT="bootstrap/bootstrap-linux.sh"
         # Detect WSL/Lima
         if grep -qiE "(microsoft|wsl)" /proc/version 2>/dev/null; then
             PLATFORM="WSL2"
@@ -160,11 +160,9 @@ fi
 info "Running bootstrap script..."
 echo ""
 
-if [[ -n "$BOOTSTRAP_ARGS" ]]; then
-    ./"$BOOTSTRAP_SCRIPT" $BOOTSTRAP_ARGS
-else
-    ./"$BOOTSTRAP_SCRIPT"
-fi
+# Note: BOOTSTRAP_ARGS is intentionally unquoted to allow word splitting for multiple flags
+# shellcheck disable=SC2086
+./"$BOOTSTRAP_SCRIPT" $BOOTSTRAP_ARGS
 
 # Success message
 echo ""
@@ -179,9 +177,10 @@ echo -e "     ${CYAN}exec zsh${NC}"
 echo ""
 
 if ! $MINIMAL; then
-    echo "  2. (Optional) Restore secrets from Bitwarden:"
-    echo -e "     ${CYAN}bw login${NC}"
-    echo -e "     ${CYAN}export BW_SESSION=\"\$(bw unlock --raw)\"${NC}"
+    echo "  2. (Optional) Restore secrets from vault:"
+    echo -e "     ${CYAN}# Bitwarden: bw login && export BW_SESSION=\"\$(bw unlock --raw)\"${NC}"
+    echo -e "     ${CYAN}# 1Password: op signin${NC}"
+    echo -e "     ${CYAN}# pass: (uses GPG, no login needed)${NC}"
     echo -e "     ${CYAN}dotfiles vault restore${NC}"
     echo ""
     echo "  3. Verify installation:"

@@ -113,12 +113,16 @@ echo ""
 # ============================================================
 section "Version & Updates"
 
-# Check current version
-if [[ -f "$DOTFILES_DIR/VERSION" ]]; then
-    VERSION=$(cat "$DOTFILES_DIR/VERSION")
-    pass "Dotfiles version: $VERSION"
+# Check current version (from CHANGELOG.md)
+if [[ -f "$DOTFILES_DIR/CHANGELOG.md" ]]; then
+    VERSION=$(grep -m1 '^\#\# \[' "$DOTFILES_DIR/CHANGELOG.md" | sed 's/.*\[\(.*\)\].*/\1/')
+    if [[ -n "$VERSION" ]]; then
+        pass "Dotfiles version: $VERSION"
+    else
+        warn "Could not parse version from CHANGELOG.md"
+    fi
 else
-    warn "VERSION file not found"
+    warn "CHANGELOG.md not found"
 fi
 
 # Check for updates (quick git fetch)
@@ -201,11 +205,15 @@ check_command "git"
 check_command "brew" "homebrew"
 check_command "jq"
 
-# Optional but recommended
+# Optional: vault CLI tools
 if command -v bw >/dev/null 2>&1; then
     pass "bw (Bitwarden CLI)"
+elif command -v op >/dev/null 2>&1; then
+    pass "op (1Password CLI)"
+elif command -v pass >/dev/null 2>&1; then
+    pass "pass (standard Unix password manager)"
 else
-    info "bw not installed (optional - for vault features)"
+    info "No vault CLI installed (optional - for vault features)"
 fi
 
 # ============================================================
@@ -284,22 +292,40 @@ if [[ -d "$HOME/.aws" ]] || command -v aws >/dev/null 2>&1; then
 fi
 
 # ============================================================
-# Section 6: Bitwarden Vault (unless quick mode)
+# Section 6: Vault Status (unless quick mode)
 # ============================================================
-if ! $QUICK_MODE && command -v bw >/dev/null 2>&1; then
-    section "Bitwarden Vault"
+if ! $QUICK_MODE; then
+    if command -v bw >/dev/null 2>&1; then
+        section "Vault Status (Bitwarden)"
 
-    if bw login --check >/dev/null 2>&1; then
-        pass "Logged in to Bitwarden"
+        if bw login --check >/dev/null 2>&1; then
+            pass "Logged in to Bitwarden"
 
-        # Check if unlocked
-        if bw unlock --check >/dev/null 2>&1; then
-            pass "Vault is unlocked"
+            # Check if unlocked
+            if bw unlock --check >/dev/null 2>&1; then
+                pass "Vault is unlocked"
+            else
+                warn "Vault is locked - run: export BW_SESSION=\"\$(bw unlock --raw)\""
+            fi
         else
-            warn "Vault is locked - run: export BW_SESSION=\"\$(bw unlock --raw)\""
+            warn "Not logged in to Bitwarden - run: bw login"
         fi
-    else
-        warn "Not logged in to Bitwarden - run: bw login"
+    elif command -v op >/dev/null 2>&1; then
+        section "Vault Status (1Password)"
+
+        if op account get >/dev/null 2>&1; then
+            pass "Signed in to 1Password"
+        else
+            warn "Not signed in to 1Password - run: op signin"
+        fi
+    elif command -v pass >/dev/null 2>&1; then
+        section "Vault Status (pass)"
+
+        if [[ -d "$HOME/.password-store" ]]; then
+            pass "Password store initialized"
+        else
+            warn "Password store not initialized - run: pass init <gpg-id>"
+        fi
     fi
 fi
 
@@ -328,6 +354,55 @@ if [[ -f "$HOME/.p10k.zsh" ]]; then
     pass "Powerlevel10k configuration exists"
 else
     warn "Powerlevel10k configuration missing"
+fi
+
+# ============================================================
+# Section 8: Template System
+# ============================================================
+section "Template System"
+
+TEMPLATES_DIR="$DOTFILES_DIR/templates"
+GENERATED_DIR="$DOTFILES_DIR/generated"
+
+# Check if template system is configured
+if [[ -f "$TEMPLATES_DIR/_variables.local.sh" ]]; then
+    pass "Template variables configured"
+
+    # Check if templates are rendered
+    if [[ -d "$GENERATED_DIR" ]]; then
+        generated_count=$(find "$GENERATED_DIR" -type f 2>/dev/null | wc -l)
+        if [[ $generated_count -gt 0 ]]; then
+            pass "Found $generated_count generated config(s)"
+
+            # Check for stale templates
+            stale_count=0
+            shopt -s nullglob
+            for tmpl in "$TEMPLATES_DIR/configs"/*.tmpl; do
+                [[ -f "$tmpl" ]] || continue
+                basename="${tmpl##*/}"
+                basename="${basename%.tmpl}"
+                generated="$GENERATED_DIR/$basename"
+
+                if [[ -f "$generated" && "$tmpl" -nt "$generated" ]]; then
+                    ((stale_count++))
+                fi
+            done
+            shopt -u nullglob
+
+            if [[ $stale_count -gt 0 ]]; then
+                warn "$stale_count template(s) need re-rendering - run: dotfiles template render"
+            else
+                pass "All generated configs up to date"
+            fi
+        else
+            warn "No generated configs - run: dotfiles template render"
+        fi
+    else
+        warn "Generated directory missing - run: dotfiles template render"
+    fi
+else
+    info "Template system not configured (optional)"
+    info "Run 'dotfiles template init' to set up machine-specific configs"
 fi
 
 # ============================================================

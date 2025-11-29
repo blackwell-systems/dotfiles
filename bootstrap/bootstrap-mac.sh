@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# ============================================================
+# FILE: bootstrap-mac.sh
+# macOS bootstrap script
+# Usage:
+#   ./bootstrap-mac.sh              # Standard bootstrap
+#   ./bootstrap-mac.sh --interactive  # Prompt for options
+#   ./bootstrap-mac.sh --help       # Show help
+# ============================================================
+set -euo pipefail
+
+# DOTFILES_DIR is parent of bootstrap/
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Set platform name before sourcing common (used in help text)
+export PLATFORM_NAME="macOS"
+
+# Source shared bootstrap functions
+# shellcheck source=bootstrap/_common.sh
+source "$DOTFILES_DIR/bootstrap/_common.sh"
+
+# Parse arguments (sets INTERACTIVE flag)
+parse_bootstrap_args "$@"
+
+# Run interactive configuration if --interactive
+run_interactive_config
+
+echo "=== macOS bootstrap starting ==="
+
+# ============================================================
+# 1. Xcode CLI tools (macOS-specific)
+# ============================================================
+if ! xcode-select -p >/dev/null 2>&1; then
+    echo "Installing Xcode Command Line Tools..."
+    xcode-select --install || true
+    echo "Please rerun this script after Xcode tools finish installing."
+    exit 0
+fi
+
+# ============================================================
+# 2. Homebrew (macOS-specific paths)
+# ============================================================
+if ! command -v brew >/dev/null 2>&1; then
+    echo "Installing Homebrew..."
+    /bin/bash -c \
+        "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+# Try Apple Silicon path first, then Intel path
+if [[ -d /opt/homebrew ]]; then
+    add_brew_to_zprofile "/opt/homebrew"
+elif [[ -d /usr/local/Homebrew ]]; then
+    add_brew_to_zprofile "/usr/local"
+fi
+
+# Make sure brew is on PATH for this session
+if command -v brew >/dev/null 2>&1; then
+    eval "$(brew shellenv)"
+else
+    echo "WARNING: Homebrew not found in PATH after installation."
+fi
+
+# ============================================================
+# 3. Brew Bundle (shared)
+# ============================================================
+run_brew_bundle
+
+# ============================================================
+# 4. Workspace layout (shared)
+# ============================================================
+setup_workspace_layout
+
+# ============================================================
+# 5. /workspace symlink (shared)
+# ============================================================
+setup_workspace_symlink
+
+# ============================================================
+# 6. Dotfiles symlinks (shared)
+# ============================================================
+link_dotfiles
+
+# ============================================================
+# Done
+# ============================================================
+echo "=== macOS bootstrap complete ==="
+echo "Next:"
+echo "  - Open Ghostty and confirm Meslo Nerd Font is selected."
+echo "  - Clone your repos into ~/workspace (whitepapers, patent-pool, etc.)."
+echo "  - Use 'cd /workspace/...' for Claude (optional: enables cross-machine sessions)."

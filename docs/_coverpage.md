@@ -1,4 +1,4 @@
-![logo](assets/logo.png ':size=140')
+![logo](assets/dotfiles_logo.png ':size=250')
 
 # dotfiles
 
@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/blackwell-systems/dotfiles/main/ins
 
 - Secrets in Bitwarden, not scattered across machines
 - Health checks with drift detection and auto-fix
-- Works on macOS, Linux, WSL2, Docker
+- Works on macOS, Linux, Windows, WSL2, Docker
 - Tested and validated on every push
 
 [Get Started](#quick-start)

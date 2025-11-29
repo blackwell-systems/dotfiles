@@ -25,7 +25,7 @@ OPTIONS:
 
 ITEMS:
 EOF
-    for item in "${(k)SYNCABLE_ITEMS[@]}"; do
+    for item in "${(@k)SYNCABLE_ITEMS}"; do
         printf "    %-20s %s\n" "$item" "${SYNCABLE_ITEMS[$item]}"
     done | sort
     cat <<EOF
@@ -47,7 +47,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --all|-a)
-            ITEMS_TO_SYNC=("${(k)SYNCABLE_ITEMS[@]}")
+            ITEMS_TO_SYNC=("${(@k)SYNCABLE_ITEMS}")
             shift
             ;;
         --help|-h)
@@ -74,6 +74,16 @@ if [[ ${#ITEMS_TO_SYNC[@]} -eq 0 ]]; then
     warn "No items specified. Use --all or specify items to sync."
     echo ""
     usage
+fi
+
+# Check offline mode
+if is_offline; then
+    warn "DOTFILES_OFFLINE=1 - Cannot sync to Bitwarden in offline mode"
+    echo ""
+    echo "To sync later:"
+    echo "  unset DOTFILES_OFFLINE"
+    echo "  dotfiles vault sync --all"
+    exit 0
 fi
 
 # Verify prerequisites

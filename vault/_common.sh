@@ -14,7 +14,8 @@ _VAULT_COMMON_LOADED=1
 # ============================================================
 # In zsh, ${0:a:h} gets the absolute path's directory for sourced scripts
 VAULT_DIR="${0:a:h}"
-SESSION_FILE="$VAULT_DIR/.bw-session"
+DOTFILES_DIR="${VAULT_DIR:h}"  # Parent of vault/
+SESSION_FILE="$VAULT_DIR/.vault-session"
 
 # ============================================================
 # Color definitions (disabled if not a terminal)
@@ -43,8 +44,18 @@ dry()   { print "${CYAN}[DRY-RUN]${NC} $1"; }
 debug() { [[ "${DEBUG:-}" == "1" ]] && print "${DIM}[DEBUG] $1${NC}"; }
 
 # ============================================================
+# Load Vault Abstraction Layer
+# ============================================================
+# The vault abstraction supports multiple backends:
+#   - bitwarden (default)
+#   - 1password
+#   - pass
+# Set DOTFILES_VAULT_BACKEND to switch backends
+source "$DOTFILES_DIR/lib/_vault.sh"
+
+# ============================================================
 # Single source of truth: SSH Keys
-# Format: "bitwarden_item" => "private_key_path"
+# Format: "vault_item" => "private_key_path"
 # To add a new SSH key, add it here and it propagates everywhere
 # ============================================================
 typeset -A SSH_KEYS=(
@@ -59,9 +70,9 @@ get_ssh_key_paths() {
     done | sort
 }
 
-# Get list of SSH key Bitwarden item names
+# Get list of SSH key vault item names
 get_ssh_key_items() {
-    for item in "${(k)SSH_KEYS[@]}"; do
+    for item in "${(@k)SSH_KEYS}"; do
         echo "$item"
     done | sort
 }
@@ -100,7 +111,7 @@ typeset -A SYNCABLE_ITEMS=(
 # Get required items list
 get_required_items() {
     local items=()
-    for item in "${(k)DOTFILES_ITEMS[@]}"; do
+    for item in "${(@k)DOTFILES_ITEMS}"; do
         local spec="${DOTFILES_ITEMS[$item]}"
         [[ "$spec" == *":required:"* ]] && items+=("$item")
     done
@@ -110,7 +121,7 @@ get_required_items() {
 # Get optional items list
 get_optional_items() {
     local items=()
-    for item in "${(k)DOTFILES_ITEMS[@]}"; do
+    for item in "${(@k)DOTFILES_ITEMS}"; do
         local spec="${DOTFILES_ITEMS[$item]}"
         [[ "$spec" == *":optional:"* ]] && items+=("$item")
     done
@@ -131,14 +142,34 @@ is_protected_item() {
 }
 
 # ============================================================
-# Prerequisite checks
+# Offline mode support
 # ============================================================
-require_bw() {
-    if ! command -v bw >/dev/null 2>&1; then
-        fail "Bitwarden CLI (bw) is not installed."
-        echo "Install with: brew install bitwarden-cli" >&2
-        exit 1
+# Check if running in offline mode
+# Usage: if is_offline; then skip_vault_ops; fi
+is_offline() {
+    [[ "${DOTFILES_OFFLINE:-0}" == "1" ]]
+}
+
+# Wrapper to skip vault operations in offline mode
+# Returns 0 (success) if offline, allowing graceful skip
+# Usage: require_online || return 0
+require_online() {
+    if is_offline; then
+        warn "Offline mode enabled (DOTFILES_OFFLINE=1) - skipping vault operation"
+        return 1
     fi
+    return 0
+}
+
+# ============================================================
+# Prerequisite checks (using vault abstraction)
+# ============================================================
+require_vault() {
+    # Skip in offline mode
+    is_offline && return 0
+
+    # Initialize vault backend
+    vault_init || exit 1
 }
 
 require_jq() {
@@ -150,94 +181,61 @@ require_jq() {
 }
 
 require_logged_in() {
-    if ! bw login --check >/dev/null 2>&1; then
-        fail "Not logged in to Bitwarden."
-        echo "Please run: bw login" >&2
+    # Skip in offline mode
+    is_offline && return 0
+
+    # Initialize and check login
+    vault_init || exit 1
+    if ! vault_login_check; then
+        fail "Not logged in to $(vault_name)."
+        echo "Please log in to your vault provider" >&2
         exit 1
     fi
 }
 
 # ============================================================
-# Session management
+# Legacy aliases for backward compatibility
+# These wrap the new vault_* functions
 # ============================================================
+require_bw() {
+    require_vault
+}
 
-# Get a valid Bitwarden session
-# Usage: SESSION=$(get_session) or get_session (sets BW_SESSION)
 get_session() {
-    local session="${BW_SESSION:-}"
-
-    # Try cached session file
-    if [[ -z "$session" && -f "$SESSION_FILE" ]]; then
-        session="$(cat "$SESSION_FILE")"
-    fi
-
-    # Validate session
-    if [[ -n "$session" ]] && bw unlock --check --session "$session" >/dev/null 2>&1; then
-        echo "$session"
-        return 0
-    fi
-
-    # Need to unlock
-    info "Unlocking Bitwarden vault..."
-    session="$(bw unlock --raw)"
-
-    if [[ -z "$session" ]]; then
-        fail "Failed to unlock Bitwarden vault."
-        exit 1
-    fi
-
-    # Cache session with secure permissions
-    (umask 077 && printf '%s' "$session" > "$SESSION_FILE")
-
-    echo "$session"
+    vault_get_session
 }
 
-# Sync the Bitwarden vault
 sync_vault() {
     local session="$1"
-    info "Syncing Bitwarden vault..."
-    bw sync --session "$session" >/dev/null
+    vault_sync "$session"
 }
 
-# ============================================================
-# Bitwarden item operations
-# ============================================================
-
-# Get item JSON from Bitwarden
-# Returns empty string if not found
 bw_get_item() {
     local item_name="$1"
     local session="$2"
-    bw get item "$item_name" --session "$session" 2>/dev/null || echo ""
+    vault_get_item "$item_name" "$session"
 }
 
-# Get notes field from item
 bw_get_notes() {
     local item_name="$1"
     local session="$2"
-    local json
-    json=$(bw_get_item "$item_name" "$session")
-    [[ -n "$json" ]] && printf '%s' "$json" | jq -r '.notes // ""'
+    vault_get_notes "$item_name" "$session"
 }
 
-# Check if item exists
 bw_item_exists() {
     local item_name="$1"
     local session="$2"
-    bw get item "$item_name" --session "$session" >/dev/null 2>&1
+    vault_item_exists "$item_name" "$session"
 }
 
-# Get item ID
 bw_get_item_id() {
     local item_name="$1"
     local session="$2"
-    local json
-    json=$(bw_get_item "$item_name" "$session")
-    [[ -n "$json" ]] && printf '%s' "$json" | jq -r '.id'
+    vault_get_item_id "$item_name" "$session"
 }
 
 # ============================================================
-# Schema Validation Functions
+# Schema Validation Functions (using vault abstraction)
 # ============================================================
 
 # Validate that an item exists
@@ -245,8 +243,8 @@ validate_item_exists() {
     local item_name="$1"
     local session="$2"
 
-    if ! bw_item_exists "$item_name" "$session"; then
-        fail "Validation failed: Item '$item_name' does not exist in Bitwarden vault"
+    if ! vault_item_exists "$item_name" "$session"; then
+        fail "Validation failed: Item '$item_name' does not exist in vault"
         return 1
     fi
 
@@ -260,7 +258,7 @@ validate_item_has_notes() {
     local session="$2"
 
     local notes
-    notes=$(bw_get_notes "$item_name" "$session")
+    notes=$(vault_get_notes "$item_name" "$session")
 
     if [[ -z "$notes" || "$notes" == "null" ]]; then
         fail "Validation failed: Item '$item_name' has empty or missing notes field"
@@ -271,14 +269,14 @@ validate_item_has_notes() {
     return 0
 }
 
-# Validate that an item is a secure note
+# Validate that an item is a secure note (type check)
 validate_item_type() {
     local item_name="$1"
     local session="$2"
-    local expected_type="${3:-2}"  # 2 = secureNote in Bitwarden
+    local expected_type="${3:-2}"  # 2 = secureNote (Bitwarden convention)
 
     local json item_type
-    json=$(bw_get_item "$item_name" "$session")
+    json=$(vault_get_item "$item_name" "$session")
     item_type=$(printf '%s' "$json" | jq -r '.type // ""')
 
     if [[ "$item_type" != "$expected_type" ]]; then
@@ -306,7 +304,7 @@ validate_ssh_key_item() {
 
     # Check notes contain private key
     local notes
-    notes=$(bw_get_notes "$item_name" "$session")
+    notes=$(vault_get_notes "$item_name" "$session")
 
     if ! printf '%s' "$notes" | grep -q "BEGIN OPENSSH PRIVATE KEY"; then
         fail "Validation failed: Item '$item_name' notes do not contain 'BEGIN OPENSSH PRIVATE KEY'"
@@ -342,7 +340,7 @@ validate_config_item() {
 
     # Check it has notes with minimum length
     local notes
-    notes=$(bw_get_notes "$item_name" "$session")
+    notes=$(vault_get_notes "$item_name" "$session")
 
     if [[ -z "$notes" || "$notes" == "null" ]]; then
         fail "Validation failed: Item '$item_name' has empty notes"
@@ -369,7 +367,7 @@ validate_all_items() {
     info "Validating vault items schema..."
 
     # Validate SSH keys
-    for item in "${(k)SSH_KEYS[@]}"; do
+    for item in "${(@k)SSH_KEYS}"; do
         if ! validate_ssh_key_item "$item" "$session" 2>&1; then
             ((errors++))
         fi
@@ -385,9 +383,9 @@ validate_all_items() {
     done
 
     # Optional items (don't fail if missing, but validate if present)
-    for item in "${(k)DOTFILES_ITEMS[@]}"; do
+    for item in "${(@k)DOTFILES_ITEMS}"; do
         local spec="${DOTFILES_ITEMS[$item]}"
-        if [[ "$spec" == *":optional:"* ]] && bw_item_exists "$item" "$session"; then
+        if [[ "$spec" == *":optional:"* ]] && vault_item_exists "$item" "$session"; then
             if ! validate_config_item "$item" "$session" 1 2>&1; then
                 warn "Optional item '$item' failed validation"
             fi
@@ -401,4 +399,105 @@ validate_all_items() {
 
     pass "All vault items validated successfully"
     return 0
+}
+
+# ============================================================
+# Pre-restore drift check (using vault abstraction)
+# Checks if local files differ from vault before restore
+# ============================================================
+
+# Check if a single item has drifted from vault
+# Returns 0 if no drift, 1 if drifted, 2 if local missing
+check_item_drift() {
+    local item_name="$1"
+    local session="$2"
+    local local_path
+
+    # Get local path for this item
+    local_path=$(get_item_path "$item_name")
+    if [[ -z "$local_path" ]]; then
+        # Try SYNCABLE_ITEMS
+        local_path="${SYNCABLE_ITEMS[$item_name]:-}"
+    fi
+
+    if [[ -z "$local_path" ]]; then
+        debug "No local path for item '$item_name'"
+        return 0
+    fi
+
+    # If local file doesn't exist, no drift to worry about
+    if [[ ! -f "$local_path" ]]; then
+        debug "Local file not found: $local_path"
+        return 2
+    fi
+
+    # Get vault content
+    local vault_content
+    vault_content=$(vault_get_notes "$item_name" "$session")
+
+    if [[ -z "$vault_content" || "$vault_content" == "null" ]]; then
+        debug "Vault item '$item_name' has no content"
+        return 0
+    fi
+
+    # Compare local vs vault
+    local local_content
+    local_content=$(cat "$local_path")
+
+    if [[ "$local_content" != "$vault_content" ]]; then
+        return 1  # Drifted
+    fi
+
+    return 0  # No drift
+}
+
+# Check all syncable items for drift before restore
+# Returns 0 if safe to restore, 1 if drift detected (user should sync first)
+check_pre_restore_drift() {
+    local session="$1"
+    local force="${2:-false}"
+    local drifted_items=()
+
+    info "Checking for local changes before restore..."
+
+    for item_name in "${(@k)SYNCABLE_ITEMS}"; do
+        local result
+        check_item_drift "$item_name" "$session"
+        result=$?
+
+        if [[ $result -eq 1 ]]; then
+            drifted_items+=("$item_name")
+        fi
+    done
+
+    if [[ ${#drifted_items[@]} -gt 0 ]]; then
+        warn "Local files have changed since last vault sync:"
+        for item in "${drifted_items[@]}"; do
+            local path="${SYNCABLE_ITEMS[$item]:-$(get_item_path "$item")}"
+            echo "  - $item ($path)"
+        done
+        echo ""
+
+        if [[ "$force" == "true" ]]; then
+            warn "Proceeding with restore (--force specified)"
+            return 0
+        fi
+
+        echo -e "${YELLOW}Options:${NC}"
+        echo "  1. Run 'dotfiles vault sync' first to save local changes"
+        echo "  2. Run restore with --force to overwrite local changes"
+        echo "  3. Run 'dotfiles drift' to see detailed differences"
+        echo ""
+        fail "Restore aborted to prevent data loss"
+        return 1
+    fi
+
+    pass "No local drift detected - safe to restore"
+    return 0
+}
+
+# Environment variable to skip drift check (for automation)
+# Usage: DOTFILES_SKIP_DRIFT_CHECK=1 dotfiles vault restore
+skip_drift_check() {
+    [[ "${DOTFILES_SKIP_DRIFT_CHECK:-0}" == "1" ]]
 }
