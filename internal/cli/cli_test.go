@@ -15,8 +15,8 @@ func TestRootCommand(t *testing.T) {
 		t.Fatal("rootCmd should not be nil")
 	}
 
-	if rootCmd.Use != "dotfiles" {
-		t.Errorf("expected Use='dotfiles', got '%s'", rootCmd.Use)
+	if rootCmd.Use != "blackdot" {
+		t.Errorf("expected Use='blackdot', got '%s'", rootCmd.Use)
 	}
 
 	if rootCmd.Short == "" {

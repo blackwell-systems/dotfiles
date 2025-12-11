@@ -21,8 +21,8 @@ var uninstallSymlinks = []string{
 
 // Config files to remove
 var uninstallConfigFiles = []string{
-	".dotfiles-metrics.jsonl",
-	".dotfiles-backups",
+	".blackdot-metrics.jsonl",
+	".blackdot-backups",
 }
 
 // Secret files (only removed if --keep-secrets is not set)
@@ -37,17 +37,17 @@ var uninstallSecretFiles = []string{
 func newUninstallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uninstall",
-		Short: "Remove dotfiles configuration",
-		Long: `Uninstall dotfiles by removing symlinks and configurations.
+		Short: "Remove blackdot configuration",
+		Long: `Uninstall blackdot by removing symlinks and configurations.
 
 Options:
   --dry-run, -n      Show what would be removed (don't delete)
   --keep-secrets, -k Keep SSH keys and AWS credentials
 
 Examples:
-  dotfiles uninstall              # Interactive uninstall
-  dotfiles uninstall --dry-run    # Preview what would be removed
-  dotfiles uninstall -k           # Keep secrets`,
+  blackdot uninstall              # Interactive uninstall
+  blackdot uninstall --dry-run    # Preview what would be removed
+  blackdot uninstall -k           # Keep secrets`,
 		RunE: runUninstall,
 	}
 
@@ -68,7 +68,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 
 	dotfilesDir := os.Getenv("BLACKDOT_DIR")
 	if dotfilesDir == "" {
-		dotfilesDir = filepath.Join(home, ".dotfiles")
+		dotfilesDir = filepath.Join(home, ".blackdot")
 	}
 
 	// Colors
@@ -79,7 +79,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 	blue := color.New(color.FgBlue).SprintFunc()
 
 	fmt.Println()
-	bold.Add(color.FgRed).Println("Dotfiles Uninstaller")
+	bold.Add(color.FgRed).Println("Blackdot Uninstaller")
 	fmt.Println()
 
 	if dryRun {
@@ -133,15 +133,15 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Handle dotfiles repository
+	// Handle blackdot repository
 	fmt.Println()
-	fmt.Println(blue("Dotfiles repository..."))
+	fmt.Println(blue("Blackdot repository..."))
 	if info, err := os.Stat(dotfilesDir); err == nil && info.IsDir() {
 		if dryRun {
 			fmt.Printf("  %s: %s (repository)\n", yellow("Would remove"), dotfilesDir)
 		} else {
 			reader := bufio.NewReader(os.Stdin)
-			fmt.Print("Remove dotfiles repository? (yes/no): ")
+			fmt.Print("Remove blackdot repository? (yes/no): ")
 			confirm, _ := reader.ReadString('\n')
 			confirm = strings.TrimSpace(confirm)
 

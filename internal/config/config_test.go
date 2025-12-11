@@ -44,23 +44,23 @@ func TestDefaultManager(t *testing.T) {
 func TestDefaultManagerWithEnv(t *testing.T) {
 	// Save original env
 	origConfig := os.Getenv("XDG_CONFIG_HOME")
-	origDotfiles := os.Getenv("DOTFILES_DIR")
+	origDotfiles := os.Getenv("BLACKDOT_DIR")
 	defer func() {
 		os.Setenv("XDG_CONFIG_HOME", origConfig)
-		os.Setenv("DOTFILES_DIR", origDotfiles)
+		os.Setenv("BLACKDOT_DIR", origDotfiles)
 	}()
 
 	os.Setenv("XDG_CONFIG_HOME", "/custom/config")
-	os.Setenv("DOTFILES_DIR", "/custom/dotfiles")
+	os.Setenv("BLACKDOT_DIR", "/custom/blackdot")
 
 	m := DefaultManager()
 
-	if m.configDir != "/custom/config/dotfiles" {
-		t.Errorf("expected configDir='/custom/config/dotfiles', got '%s'", m.configDir)
+	if m.configDir != "/custom/config/blackdot" {
+		t.Errorf("expected configDir='/custom/config/blackdot', got '%s'", m.configDir)
 	}
 
-	if m.dotfilesDir != "/custom/dotfiles" {
-		t.Errorf("expected dotfilesDir='/custom/dotfiles', got '%s'", m.dotfilesDir)
+	if m.dotfilesDir != "/custom/blackdot" {
+		t.Errorf("expected dotfilesDir='/custom/blackdot', got '%s'", m.dotfilesDir)
 	}
 }
 
@@ -364,8 +364,8 @@ func TestLayerConstants(t *testing.T) {
 
 // TestConfigFileConstants verifies file name constants
 func TestConfigFileConstants(t *testing.T) {
-	if ProjectConfigFile != ".dotfiles.json" {
-		t.Error("ProjectConfigFile should be '.dotfiles.json'")
+	if ProjectConfigFile != ".blackdot.json" {
+		t.Error("ProjectConfigFile should be '.blackdot.json'")
 	}
 	if MachineConfigFile != "machine.json" {
 		t.Error("MachineConfigFile should be 'machine.json'")
@@ -385,7 +385,7 @@ func TestProjectConfigPath(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Create project config in temp dir
-	projectConfig := filepath.Join(tmpDir, ".dotfiles.json")
+	projectConfig := filepath.Join(tmpDir, ".blackdot.json")
 	os.WriteFile(projectConfig, []byte(`{"version":3}`), 0644)
 
 	// Create subdirectory
@@ -412,7 +412,7 @@ func TestVaultConfigFields(t *testing.T) {
 			Backend:   "bitwarden",
 			AutoSync:  true,
 			Location:  "/path/to/vault",
-			Namespace: "dotfiles",
+			Namespace: "blackdot",
 		},
 	}
 
@@ -425,7 +425,7 @@ func TestVaultConfigFields(t *testing.T) {
 	if cfg.Vault.Location != "/path/to/vault" {
 		t.Error("Location not set correctly")
 	}
-	if cfg.Vault.Namespace != "dotfiles" {
+	if cfg.Vault.Namespace != "blackdot" {
 		t.Error("Namespace not set correctly")
 	}
 }

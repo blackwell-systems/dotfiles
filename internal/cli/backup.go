@@ -39,11 +39,11 @@ func getBackupConfig() *backupConfig {
 	home, _ := os.UserHomeDir()
 	dotfilesDir := os.Getenv("BLACKDOT_DIR")
 	if dotfilesDir == "" {
-		dotfilesDir = filepath.Join(home, ".dotfiles")
+		dotfilesDir = filepath.Join(home, ".blackdot")
 	}
 
 	return &backupConfig{
-		backupDir:   filepath.Join(home, ".dotfiles-backups"),
+		backupDir:   filepath.Join(home, ".blackdot-backups"),
 		maxBackups:  10,
 		compress:    true,
 		dotfilesDir: dotfilesDir,
@@ -54,7 +54,7 @@ func newBackupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Manage backups",
-		Long:  `Manage dotfiles backups`,
+		Long:  `Manage blackdot backups`,
 		RunE:  runBackupCreate,
 	}
 
@@ -80,8 +80,8 @@ func newBackupCmd() *cobra.Command {
 			Long: `Restore a backup. If no backup-id is given, restores the latest.
 
 Examples:
-  dotfiles backup restore                  # Restore latest
-  dotfiles backup restore 20231207_120000  # Restore specific`,
+  blackdot backup restore                  # Restore latest
+  blackdot backup restore 20231207_120000  # Restore specific`,
 			RunE: runBackupRestore,
 		},
 		&cobra.Command{
@@ -97,14 +97,14 @@ Examples:
 // printBackupHelp prints styled help matching ZSH style
 func printBackupHelp() {
 	// Title
-	BoldCyan.Print("dotfiles backup")
+	BoldCyan.Print("blackdot backup")
 	fmt.Print(" - ")
-	Dim.Println("Manage dotfiles backups")
+	Dim.Println("Manage blackdot backups")
 	fmt.Println()
 
 	// Usage
 	Bold.Print("Usage:")
-	fmt.Println(" dotfiles backup [command]")
+	fmt.Println(" blackdot backup [command]")
 	fmt.Println()
 
 	// Commands
@@ -136,19 +136,19 @@ func printBackupHelp() {
 	// Examples
 	BoldCyan.Println("Examples:")
 	fmt.Print("  ")
-	Yellow.Print("dotfiles backup")
+	Yellow.Print("blackdot backup")
 	fmt.Print("              ")
 	Dim.Println("# Create a new backup")
 	fmt.Print("  ")
-	Yellow.Print("dotfiles backup list")
+	Yellow.Print("blackdot backup list")
 	fmt.Print("         ")
 	Dim.Println("# List all backups")
 	fmt.Print("  ")
-	Yellow.Print("dotfiles backup restore")
+	Yellow.Print("blackdot backup restore")
 	fmt.Print("      ")
 	Dim.Println("# Restore latest backup")
 	fmt.Print("  ")
-	Yellow.Print("dotfiles backup clean")
+	Yellow.Print("blackdot backup clean")
 	fmt.Print("        ")
 	Dim.Println("# Remove old backups")
 	fmt.Println()
@@ -239,7 +239,7 @@ func runBackupCreate(cmd *cobra.Command, args []string) error {
 		data, err := os.ReadFile(varFile)
 		if err == nil {
 			header := &tar.Header{
-				Name:    "dotfiles/templates/_variables.local.sh",
+				Name:    "blackdot/templates/_variables.local.sh",
 				Size:    info.Size(),
 				Mode:    int64(info.Mode()),
 				ModTime: info.ModTime(),
@@ -324,7 +324,7 @@ func runBackupList(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Println("Restore with: dotfiles backup restore [backup-name]")
+	fmt.Println("Restore with: blackdot backup restore [backup-name]")
 	fmt.Printf("Location: %s\n", cfg.backupDir)
 	return nil
 }
@@ -445,9 +445,9 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 
 		// Determine destination
 		var destPath string
-		if strings.HasPrefix(relPath, "dotfiles/") {
-			// Dotfiles-relative path
-			destPath = filepath.Join(cfg.dotfilesDir, strings.TrimPrefix(relPath, "dotfiles/"))
+		if strings.HasPrefix(relPath, "blackdot/") {
+			// Blackdot-relative path
+			destPath = filepath.Join(cfg.dotfilesDir, strings.TrimPrefix(relPath, "blackdot/"))
 		} else {
 			// Home-relative path
 			destPath = filepath.Join(home, relPath)
