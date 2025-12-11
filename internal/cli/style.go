@@ -13,7 +13,7 @@ import (
 // Custom help template matching ZSH style
 func customHelpFunc(cmd *cobra.Command, args []string) {
 	// Root command gets special treatment
-	if cmd.Name() == "dotfiles" && cmd.Parent() == nil {
+	if cmd.Name() == "blackdot" && cmd.Parent() == nil {
 		printRootHelp()
 		return
 	}
@@ -22,14 +22,14 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 	printCommandHelp(cmd)
 }
 
-// printRootHelp prints help matching the ZSH _dotfiles_help function exactly
+// printRootHelp prints help matching the ZSH _blackdot_help function exactly
 func printRootHelp() {
 	// Title
-	BoldCyan.Print("dotfiles")
-	fmt.Print(" - Manage your dotfiles\n")
+	BoldCyan.Print("blackdot")
+	fmt.Print(" - Manage your configuration\n")
 	fmt.Println()
 	Bold.Print("Usage:")
-	fmt.Print(" dotfiles <command> [options]\n")
+	fmt.Print(" blackdot <command> [options]\n")
 	fmt.Println()
 
 	// Setup & Health (always visible)
@@ -122,12 +122,12 @@ func printRootHelp() {
 
 	// Other Commands
 	BoldCyan.Println("Other Commands:")
-	printCmd("uninstall", "Remove dotfiles configuration")
+	printCmd("uninstall", "Remove blackdot configuration")
 	printCmd("version", "Show version information")
 	printCmd("help", "Show this help")
 	fmt.Println()
 
-	Dim.Println("Run 'dotfiles <command> --help' for detailed options.")
+	Dim.Println("Run 'blackdot <command> --help' for detailed options.")
 	fmt.Println()
 	Dim.Printf("Runtime: Go CLI (%s)\n", versionStr)
 }
@@ -152,7 +152,7 @@ func printCmdAlias(name, alias, desc string) {
 // printCommandHelp prints styled help for subcommands
 func printCommandHelp(cmd *cobra.Command) {
 	// Title
-	BoldCyan.Printf("dotfiles %s", cmd.Name())
+	BoldCyan.Printf("blackdot %s", cmd.Name())
 	if cmd.Short != "" {
 		fmt.Print(" - ")
 		Dim.Print(cmd.Short)
@@ -210,7 +210,7 @@ func printCommandHelp(cmd *cobra.Command) {
 		fmt.Println()
 	}
 
-	Dim.Printf("Run 'dotfiles %s <command> --help' for subcommand details.\n", cmd.Name())
+	Dim.Printf("Run 'blackdot %s <command> --help' for subcommand details.\n", cmd.Name())
 }
 
 // RunCommand executes the root command (used by main)
