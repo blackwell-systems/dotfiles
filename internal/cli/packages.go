@@ -36,10 +36,10 @@ Tiers:
   full        ~61 packages  - Everything (Docker, etc.)
 
 Examples:
-  dotfiles packages                        # Status overview
-  dotfiles packages --check                # See what needs installing
-  dotfiles packages --install              # Install from saved tier
-  dotfiles packages --install --tier minimal  # Install minimal tier`,
+  blackdot packages                        # Status overview
+  blackdot packages --check                # See what needs installing
+  blackdot packages --install              # Install from saved tier
+  blackdot packages --install --tier minimal  # Install minimal tier`,
 		RunE: runPackages,
 	}
 
@@ -72,31 +72,31 @@ func runPackages(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("homebrew not installed")
 	}
 
-	// Determine dotfiles directory
-	dotfilesDir := os.Getenv("BLACKDOT_DIR")
-	if dotfilesDir == "" {
+	// Determine blackdot directory
+	blackdotDir := os.Getenv("BLACKDOT_DIR")
+	if blackdotDir == "" {
 		home, _ := os.UserHomeDir()
-		dotfilesDir = filepath.Join(home, ".dotfiles")
+		blackdotDir = filepath.Join(home, ".blackdot")
 	}
 
 	// Determine tier
-	tier := getPackageTier(tierOverride, dotfilesDir)
+	tier := getPackageTier(tierOverride, blackdotDir)
 
 	// Map tier to Brewfile
 	var brewfilePath string
 	switch tier {
 	case "minimal":
-		brewfilePath = filepath.Join(dotfilesDir, "Brewfile.minimal")
+		brewfilePath = filepath.Join(blackdotDir, "Brewfile.minimal")
 	case "enhanced":
-		brewfilePath = filepath.Join(dotfilesDir, "Brewfile.enhanced")
+		brewfilePath = filepath.Join(blackdotDir, "Brewfile.enhanced")
 	default:
-		brewfilePath = filepath.Join(dotfilesDir, "Brewfile")
+		brewfilePath = filepath.Join(blackdotDir, "Brewfile")
 		tier = "full"
 	}
 
 	// Check Brewfile exists, fall back to main if needed
 	if _, err := os.Stat(brewfilePath); os.IsNotExist(err) {
-		mainBrewfile := filepath.Join(dotfilesDir, "Brewfile")
+		mainBrewfile := filepath.Join(blackdotDir, "Brewfile")
 		if _, err := os.Stat(mainBrewfile); err == nil {
 			fmt.Printf("%s Brewfile for '%s' tier not found, using full Brewfile\n", yellow("[WARN]"), tier)
 			brewfilePath = mainBrewfile
@@ -107,7 +107,7 @@ func runPackages(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	fmt.Println(bold("Dotfiles Package Manager"))
+	fmt.Println(bold("Blackdot Package Manager"))
 	fmt.Println("========================")
 	fmt.Printf("%s\n", dim(fmt.Sprintf("Tier: %s (%s)", tier, filepath.Base(brewfilePath))))
 	fmt.Println()
@@ -241,7 +241,7 @@ func getPackageTier(tierOverride, dotfilesDir string) string {
 
 	// 2. Config file (packages.tier)
 	home, _ := os.UserHomeDir()
-	configPath := filepath.Join(home, ".config", "dotfiles", "config.json")
+	configPath := filepath.Join(home, ".config", "blackdot", "config.json")
 	if data, err := os.ReadFile(configPath); err == nil {
 		var cfg map[string]interface{}
 		if json.Unmarshal(data, &cfg) == nil {

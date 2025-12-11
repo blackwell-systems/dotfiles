@@ -67,7 +67,7 @@ func TestRollbackHelp(t *testing.T) {
 // TestRollbackListNoBackups tests rollback --list with no backups
 func TestRollbackListNoBackups(t *testing.T) {
 	// Create a temp directory for backups
-	tmpDir, err := os.MkdirTemp("", "dotfiles-test-*")
+	tmpDir, err := os.MkdirTemp("", "blackdot-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -88,14 +88,14 @@ func TestRollbackListNoBackups(t *testing.T) {
 // TestRollbackListWithBackups tests rollback --list with existing backups
 func TestRollbackListWithBackups(t *testing.T) {
 	// Create a temp directory structure
-	tmpDir, err := os.MkdirTemp("", "dotfiles-test-*")
+	tmpDir, err := os.MkdirTemp("", "blackdot-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
 	// Create backup directory
-	backupDir := filepath.Join(tmpDir, ".dotfiles-backups")
+	backupDir := filepath.Join(tmpDir, ".blackdot-backups")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		t.Fatalf("failed to create backup dir: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestRollbackListWithBackups(t *testing.T) {
 // TestRollbackRestoreNoBackups tests rollback with no backups
 func TestRollbackRestoreNoBackups(t *testing.T) {
 	// Create a temp directory
-	tmpDir, err := os.MkdirTemp("", "dotfiles-test-*")
+	tmpDir, err := os.MkdirTemp("", "blackdot-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -154,13 +154,13 @@ func TestRollbackRestoreNoBackups(t *testing.T) {
 // TestRollbackRestoreSpecificNotFound tests rollback with specific backup that doesn't exist
 func TestRollbackRestoreSpecificNotFound(t *testing.T) {
 	// Create a temp directory with backup dir
-	tmpDir, err := os.MkdirTemp("", "dotfiles-test-*")
+	tmpDir, err := os.MkdirTemp("", "blackdot-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	backupDir := filepath.Join(tmpDir, ".dotfiles-backups")
+	backupDir := filepath.Join(tmpDir, ".blackdot-backups")
 	os.MkdirAll(backupDir, 0755)
 
 	// Save original home and set temp

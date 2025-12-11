@@ -91,22 +91,22 @@ func TestGlobalFlags(t *testing.T) {
 // TestDotfilesDir verifies directory resolution
 func TestDotfilesDir(t *testing.T) {
 	// Save original env
-	original := os.Getenv("DOTFILES_DIR")
-	defer os.Setenv("DOTFILES_DIR", original)
+	original := os.Getenv("BLACKDOT_DIR")
+	defer os.Setenv("BLACKDOT_DIR", original)
 
 	// Test with env var set
-	os.Setenv("DOTFILES_DIR", "/custom/path")
+	os.Setenv("BLACKDOT_DIR", "/custom/path")
 	initConfig()
 	if DotfilesDir() != "/custom/path" {
 		t.Errorf("expected '/custom/path', got '%s'", DotfilesDir())
 	}
 
 	// Test with env var unset (uses default)
-	os.Unsetenv("DOTFILES_DIR")
+	os.Unsetenv("BLACKDOT_DIR")
 	initConfig()
 	dir := DotfilesDir()
-	if !strings.HasSuffix(dir, ".dotfiles") {
-		t.Errorf("expected path ending in '.dotfiles', got '%s'", dir)
+	if !strings.HasSuffix(dir, ".blackdot") {
+		t.Errorf("expected path ending in '.blackdot', got '%s'", dir)
 	}
 }
 
@@ -119,15 +119,15 @@ func TestConfigDir(t *testing.T) {
 	// Test with XDG_CONFIG_HOME set
 	os.Setenv("XDG_CONFIG_HOME", "/custom/config")
 	dir := ConfigDir()
-	if dir != "/custom/config/dotfiles" {
-		t.Errorf("expected '/custom/config/dotfiles', got '%s'", dir)
+	if dir != "/custom/config/blackdot" {
+		t.Errorf("expected '/custom/config/blackdot', got '%s'", dir)
 	}
 
 	// Test with XDG_CONFIG_HOME unset
 	os.Unsetenv("XDG_CONFIG_HOME")
 	dir = ConfigDir()
-	if !strings.Contains(dir, ".config/dotfiles") {
-		t.Errorf("expected path containing '.config/dotfiles', got '%s'", dir)
+	if !strings.Contains(dir, ".config/blackdot") {
+		t.Errorf("expected path containing '.config/blackdot', got '%s'", dir)
 	}
 }
 
