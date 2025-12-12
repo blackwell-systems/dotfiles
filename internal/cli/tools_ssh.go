@@ -52,6 +52,11 @@ Commands:
 		newSSHTunnelCmd(),
 		newSSHSocksCmd(),
 		newSSHStatusCmdLocal(),
+		newSSHLoadCmd(),
+		newSSHUnloadCmd(),
+		newSSHClearCmd(),
+		newSSHTunnelsCmd(),
+		newSSHAddHostCmd(),
 	)
 
 	return cmd
@@ -838,5 +843,272 @@ func runSSHStatusLocal() error {
 	fmt.Printf("    %s      %s\n", dim.Sprint("Keys"), cyan.Sprintf("%d available", len(keyFiles)))
 
 	fmt.Println()
+	return nil
+}
+
+// =============================================================================
+// SSH Agent Key Management
+// =============================================================================
+
+// newSSHLoadCmd adds key to agent
+func newSSHLoadCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "load [key]",
+		Short: "Add key to SSH agent",
+		Long: `Add SSH key to the agent.
+
+If no key is specified, adds default keys.
+Key can be a full path or just the name (will search in ~/.ssh/).
+
+Examples:
+  blackdot tools ssh load                    # Load default keys
+  blackdot tools ssh load github             # Load ~/.ssh/id_ed25519_github
+  blackdot tools ssh load ~/.ssh/id_rsa      # Load specific key`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return sshLoadDefault()
+			}
+			return sshLoadKey(args[0])
+		},
+	}
+}
+
+func sshLoadDefault() error {
+	fmt.Println("Loading default SSH keys...")
+	cmd := exec.Command("ssh-add")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to load default keys: %w", err)
+	}
+
+	fmt.Println("\nCurrently loaded keys:")
+	listCmd := exec.Command("ssh-add", "-l")
+	listCmd.Stdout = os.Stdout
+	listCmd.Stderr = os.Stderr
+	return listCmd.Run()
+}
+
+func sshLoadKey(key string) error {
+	home, _ := os.UserHomeDir()
+	sshDir := filepath.Join(home, ".ssh")
+
+	// Try to find the key
+	keyPath := key
+	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+		// Try in .ssh directory
+		keyPath = filepath.Join(sshDir, key)
+		if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+			// Try with id_ed25519_ prefix
+			keyPath = filepath.Join(sshDir, "id_ed25519_"+key)
+			if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+				// Try with id_rsa_ prefix
+				keyPath = filepath.Join(sshDir, "id_rsa_"+key)
+				if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+					return fmt.Errorf("key not found: %s", key)
+				}
+			}
+		}
+	}
+
+	fmt.Printf("Loading key: %s\n", keyPath)
+	cmd := exec.Command("ssh-add", keyPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to add key: %w", err)
+	}
+
+	fmt.Println("\nCurrently loaded keys:")
+	listCmd := exec.Command("ssh-add", "-l")
+	listCmd.Stdout = os.Stdout
+	listCmd.Stderr = os.Stderr
+	return listCmd.Run()
+}
+
+// newSSHUnloadCmd removes key from agent
+func newSSHUnloadCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "unload <key>",
+		Short: "Remove key from SSH agent",
+		Long: `Remove SSH key from the agent.
+
+Key can be a full path or just the name (will search in ~/.ssh/).
+
+Examples:
+  blackdot tools ssh unload github           # Unload ~/.ssh/id_ed25519_github
+  blackdot tools ssh unload ~/.ssh/id_rsa    # Unload specific key`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return sshUnloadKey(args[0])
+		},
+	}
+}
+
+func sshUnloadKey(key string) error {
+	home, _ := os.UserHomeDir()
+	sshDir := filepath.Join(home, ".ssh")
+
+	// Try to find the key
+	keyPath := key
+	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+		keyPath = filepath.Join(sshDir, key)
+		if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+			keyPath = filepath.Join(sshDir, "id_ed25519_"+key)
+			if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+				keyPath = filepath.Join(sshDir, "id_rsa_"+key)
+			}
+		}
+	}
+
+	fmt.Printf("Removing key: %s\n", keyPath)
+	cmd := exec.Command("ssh-add", "-d", keyPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		// Try with .pub extension
+		cmd = exec.Command("ssh-add", "-d", keyPath+".pub")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to remove key: %w", err)
+		}
+	}
+
+	fmt.Println("Key removed from agent")
+	return nil
+}
+
+// newSSHClearCmd removes all keys from agent
+func newSSHClearCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "clear",
+		Short: "Remove all keys from SSH agent",
+		Long:  `Remove all keys from the SSH agent.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("Removing all keys from SSH agent...")
+			clearCmd := exec.Command("ssh-add", "-D")
+			clearCmd.Stdout = os.Stdout
+			clearCmd.Stderr = os.Stderr
+			if err := clearCmd.Run(); err != nil {
+				return fmt.Errorf("failed to clear keys: %w", err)
+			}
+			fmt.Println("Done. No keys loaded.")
+			return nil
+		},
+	}
+}
+
+// newSSHTunnelsCmd lists active SSH connections
+func newSSHTunnelsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "tunnels",
+		Short: "List active SSH connections",
+		Long:  `List all active SSH connections and tunnels.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("Active SSH Connections:")
+			fmt.Println("──────────────────────────────────────")
+
+			// Use pgrep to find SSH processes
+			psCmd := exec.Command("pgrep", "-a", "ssh")
+			output, err := psCmd.Output()
+			if err != nil {
+				fmt.Println("  No active SSH connections")
+				return nil
+			}
+
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			for _, line := range lines {
+				if line != "" && !strings.Contains(line, "pgrep") {
+					fmt.Printf("  %s\n", line)
+				}
+			}
+
+			if len(lines) == 0 {
+				fmt.Println("  No active SSH connections")
+			}
+			return nil
+		},
+	}
+}
+
+// newSSHAddHostCmd adds new host to SSH config
+func newSSHAddHostCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add-host <name>",
+		Short: "Add new host to SSH config",
+		Long: `Add a new host entry to ~/.ssh/config interactively.
+
+Example:
+  blackdot tools ssh add-host myserver`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return sshAddHost(args[0])
+		},
+	}
+}
+
+func sshAddHost(name string) error {
+	home, _ := os.UserHomeDir()
+	configPath := filepath.Join(home, ".ssh", "config")
+
+	fmt.Printf("Adding SSH host: %s\n", name)
+	fmt.Println("──────────────────────────────────────")
+
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Hostname (IP or domain): ")
+	hostname, _ := reader.ReadString('\n')
+	hostname = strings.TrimSpace(hostname)
+	if hostname == "" {
+		return fmt.Errorf("hostname is required")
+	}
+
+	fmt.Printf("User [%s]: ", os.Getenv("USER"))
+	user, _ := reader.ReadString('\n')
+	user = strings.TrimSpace(user)
+	if user == "" {
+		user = os.Getenv("USER")
+	}
+
+	fmt.Print("Port [22]: ")
+	port, _ := reader.ReadString('\n')
+	port = strings.TrimSpace(port)
+	if port == "" {
+		port = "22"
+	}
+
+	fmt.Print("Identity file (leave blank for default): ")
+	identity, _ := reader.ReadString('\n')
+	identity = strings.TrimSpace(identity)
+
+	// Build config entry
+	var entry strings.Builder
+	entry.WriteString(fmt.Sprintf("\nHost %s\n", name))
+	entry.WriteString(fmt.Sprintf("    HostName %s\n", hostname))
+	entry.WriteString(fmt.Sprintf("    User %s\n", user))
+	if port != "22" {
+		entry.WriteString(fmt.Sprintf("    Port %s\n", port))
+	}
+	if identity != "" {
+		entry.WriteString(fmt.Sprintf("    IdentityFile %s\n", identity))
+	}
+
+	// Append to config
+	f, err := os.OpenFile(configPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to open SSH config: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(entry.String()); err != nil {
+		return fmt.Errorf("failed to write to SSH config: %w", err)
+	}
+
+	fmt.Println()
+	fmt.Printf("Added host '%s' to %s\n", name, configPath)
+	fmt.Printf("Connect with: ssh %s\n", name)
 	return nil
 }
